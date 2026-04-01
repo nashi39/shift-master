@@ -4,7 +4,9 @@ import {
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  signOut 
+  signOut,
+  setPersistence,
+  browserSessionPersistence
 } from 'firebase/auth';
 
 const AuthContext = createContext();
@@ -18,12 +20,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // ログイン情報を「現在のタブ（セッション）のみ」に制限する設定
+    // これにより、新しいタブを開いたときは再度ログインが必要になります
+    setPersistence(auth, browserSessionPersistence)
+      .catch((err) => console.error("Persistence error:", err));
+
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
-        // 先にユーザー認証情報をセットして、他画面への遷移を許可する
         setUser(authUser);
-        
-        // プロフィールデータはバックグラウンドで取得
         try {
           const userDoc = await getDoc(doc(db, "users", authUser.uid));
           if (userDoc.exists()) {
