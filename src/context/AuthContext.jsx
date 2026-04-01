@@ -20,12 +20,18 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
-        // Fetch additional user data from Firestore
-        const userDoc = await getDoc(doc(db, "users", authUser.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-        }
+        // 先にユーザー認証情報をセットして、他画面への遷移を許可する
         setUser(authUser);
+        
+        // プロフィールデータはバックグラウンドで取得
+        try {
+          const userDoc = await getDoc(doc(db, "users", authUser.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
+          }
+        } catch (error) {
+          console.error("User data fetch error:", error);
+        }
       } else {
         setUser(null);
         setUserData(null);
