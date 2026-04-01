@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useShifts } from '../context/ShiftContext';
 import { useAuth } from '../context/AuthContext';
-import { Check, Calendar as CalendarIcon, User, Save, LogOut } from 'lucide-react';
+import { SHIFT_TYPES } from '../utils/constants';
+import { Check, Calendar as CalendarIcon, User, Save, LogOut, Info } from 'lucide-react';
 
 const StaffView = () => {
-  const { requests, updateGlobalShifts, loading: shiftsLoading } = useShifts();
+  const { shifts, requests, updateGlobalShifts, loading: shiftsLoading } = useShifts();
   const { userData, logout } = useAuth();
   const [localRequests, setLocalRequests] = useState([]);
   const [saved, setSaved] = useState(false);
@@ -58,16 +59,17 @@ const StaffView = () => {
       {/* Header Area */}
       <header className="mb-6 px-2 flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400">
+          <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 leading-none">
             SHIFT MASTER
           </h1>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-            Staff Portal • {year}年 {month + 1}月
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            STAFF PORTAL • {year}年 {month + 1}月
           </p>
         </div>
         <button 
           onClick={logout}
-          className="p-2.5 rounded-xl bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all border border-white/5"
+          className="p-2.5 rounded-xl bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all border border-white/5 shadow-inner"
         >
           <LogOut size={18} />
         </button>
@@ -75,37 +77,39 @@ const StaffView = () => {
 
       <div className="animate-in fade-in duration-700 space-y-6 max-w-lg mx-auto">
         {/* Active Profile Card */}
-        <div className="glass-card overflow-hidden bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
-          <div className="p-5 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-500/20 transform rotate-3">
+        <div className="glass-card overflow-hidden bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent border-blue-500/20 shadow-2xl relative">
+          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+            <User size={80} />
+          </div>
+          <div className="p-5 flex items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-500/30 transform rotate-3 ring-4 ring-white/10">
               {userData.name[0]}
             </div>
-            <div>
-              <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-0.5">Welcome back</p>
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                {userData.name}
-                <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-2 py-0.5 rounded">ID: {userData.staffId}</span>
-              </h2>
+            <div className="relative z-10">
+              <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">Authenticated Staff</p>
+              <h2 className="text-2xl font-black">{userData.name}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[9px] text-slate-400 font-mono bg-white/5 border border-white/10 px-2 py-0.5 rounded-full uppercase">ID: {userData.staffId}</span>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-black uppercase border border-emerald-500/20 tracking-tighter">ActiveNow</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Real Calendar Grid */}
-        <div className="glass-card p-5 border border-white/5 shadow-2xl">
+        <div className="glass-card p-5 border border-white/10 shadow-2xl relative overflow-hidden backdrop-blur-xl">
           <div className="flex items-center justify-between mb-8 px-1">
-            <h3 className="text-lg font-black flex items-center gap-3 italic">
-              <CalendarIcon size={20} className="text-emerald-400" />
-              CALENDAR
+            <h3 className="text-md font-black flex items-center gap-3 italic tracking-tight">
+              <CalendarIcon size={20} className="text-blue-400" />
+              MONTHLY SHIFT
             </h3>
-            <div className="flex gap-2">
-              <div className="flex items-center gap-1.5">
-               <div className="w-2 h-2 rounded-full bg-red-500 shadow-sm shadow-red-500/50" />
-               <span className="text-[10px] text-slate-400 font-bold">休み希望</span>
-              </div>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+              <Info size={12} />
+              日付をタップで休み希望
             </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-2.5">
             {/* Day Headers */}
             {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d, i) => (
               <div 
@@ -129,36 +133,62 @@ const StaffView = () => {
               const dayOfWeek = (firstDayOfMonth + idx) % 7;
               const isSunday = dayOfWeek === 0;
               const isSaturday = dayOfWeek === 6;
+              
+              // Find assigned shift
+              const assignedShiftId = (shifts[userData.staffId] && shifts[userData.staffId][idx]) || SHIFT_TYPES.OFF.id;
+              const shift = Object.values(SHIFT_TYPES).find(s => s.id === assignedShiftId);
+              const hasShift = assignedShiftId !== SHIFT_TYPES.OFF.id;
 
               return (
                 <button
                   key={day}
                   onClick={() => toggleHoliday(idx)}
-                  className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center transition-all duration-300 active:scale-90 overflow-hidden border ${
+                  className={`calendar-day relative aspect-square rounded-[1.2rem] flex flex-col items-center justify-between p-1.5 transition-all duration-300 active:scale-90 overflow-hidden border-2 ${
                     isSelected 
-                      ? 'bg-red-500 text-white shadow-xl shadow-red-500/40 border-red-400' 
-                      : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:border-white/20'
+                      ? 'bg-red-500/20 border-red-500 shadow-lg shadow-red-500/10' 
+                      : hasShift
+                        ? 'bg-white/5 border-white/20 shadow-xl'
+                        : 'border-white/5 text-slate-300 hover:bg-white/10 hover:border-white/10'
                   }`}
                 >
-                  <span className={`text-sm font-black ${
-                    !isSelected && isSunday ? 'text-red-400' : !isSelected && isSaturday ? 'text-blue-400' : ''
+                  <span className={`text-[10px] font-black self-start ml-0.5 ${
+                    isSelected ? 'text-red-400' : !isSelected && isSunday ? 'text-red-400' : !isSelected && isSaturday ? 'text-blue-400' : 'text-slate-400'
                   }`}>
                     {day}
                   </span>
-                  {isSelected && <Check size={10} className="mt-1 opacity-80" />}
+                  
+                  {hasShift && (
+                    <div 
+                      className="w-full py-1 rounded-lg text-[10px] font-black text-white shadow-lg animate-in zoom-in duration-300"
+                      style={{ backgroundColor: shift.color }}
+                    >
+                      {shift.short}
+                    </div>
+                  )}
+                  
+                  {isSelected && !hasShift && (
+                    <div className="mb-1 w-2 h-2 rounded-full bg-red-400 shadow-sm shadow-red-500/50" />
+                  )}
                 </button>
               );
             })}
           </div>
           
-          <div className="mt-8 flex justify-center gap-6 text-[10px] font-bold text-slate-500 px-2 py-4 bg-white/5 rounded-2xl border border-white/5">
-            <div className="flex items-center gap-2">
-              <div className="w-3.5 h-3.5 bg-red-500 rounded-lg shadow-sm shadow-red-500/50" />
-              <span>お休みしたい日</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3.5 h-3.5 bg-white/10 border border-white/10 rounded-lg" />
-              <span>出勤できる日</span>
+          {/* Legend Section */}
+          <div className="mt-10 pt-6 border-t border-white/5 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[SHIFT_TYPES.EARLY, SHIFT_TYPES.DAY, SHIFT_TYPES.NIGHT, SHIFT_TYPES.DAY_AM].map(type => (
+              <div key={type.id} className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
+                <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-md" style={{ backgroundColor: type.color }}>
+                  {type.short}
+                </div>
+                <span className="text-[10px] font-bold text-slate-400">{type.label}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-2 bg-red-500/5 p-2 rounded-xl border border-red-500/20">
+              <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-red-500 text-white shadow-md">
+                <Check size={12} strokeWidth={4} />
+              </div>
+              <span className="text-[10px] font-bold text-red-400">休み希望</span>
             </div>
           </div>
         </div>
@@ -168,10 +198,10 @@ const StaffView = () => {
           <button
             onClick={handleSave}
             disabled={saved}
-            className={`w-full py-5 rounded-3xl flex items-center justify-center gap-3 font-black tracking-widest transition-all duration-500 shadow-2xl transform ${
+            className={`w-full py-5 rounded-[2rem] flex items-center justify-center gap-3 font-black tracking-widest transition-all duration-500 shadow-2xl transform ${
               saved 
                 ? 'bg-emerald-500 text-white translate-y-[-4px] scale-[1.02]' 
-                : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white hover:scale-[1.03] hover:shadow-blue-500/40 active:scale-95'
+                : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white hover:scale-[1.05] hover:shadow-blue-500/40 active:scale-95'
             }`}
           >
             {saved ? (
@@ -186,12 +216,6 @@ const StaffView = () => {
               </>
             )}
           </button>
-          
-          <div className="mt-4 text-center">
-            <p className="text-[9px] text-slate-600 font-black uppercase tracking-[0.2em] animate-pulse">
-              Please save before leaving the portal
-            </p>
-          </div>
         </div>
       </div>
     </div>
