@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "shift-master-app-ed452"
+  },
+  "targets": {
+    "shift-master-app-ed452": {
+      "hosting": {
+        "staff": [
+          "shift-app-staff"
+        ],
+        "admin": [
+          "shift-app-admin"
+        ]
+      }
+    }
+  }
+}

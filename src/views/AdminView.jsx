@@ -1,0 +1,289 @@
+import React, { useState } from 'react';
+import { useShifts } from '../context/ShiftContext';
+import { db, doc, setDoc, getDocs, collection } from '../utils/firebase';
+import { SHIFT_TYPES, RULES } from '../utils/constants';
+import { generateDraftShift, checkShiftRules } from '../utils/allocationEngine';
+import { AlertTriangle, Wand2, Printer, Share2, Users, X, Plus, Trash2, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+
+const AdminView = () => {
+  const { shifts, requests, staff, updateGlobalShifts, updateStaffConfig, loading } = useShifts();
+  const { logout } = useAuth();
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [activeShift, setActiveShift] = useState(SHIFT_TYPES.DAY.id);
+  
+  // Staff Management State
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [tempStaff, setTempStaff] = useState([]);
+  const [regData, setRegData] = useState({});
+
+  const daysInMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate();
+  const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const generateKey = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  const handleCellClick = (staffId, day) => {
+    const currentShift = shifts[staffId]?.[day] || SHIFT_TYPES.OFF.id;
+    const nextShift = currentShift === activeShift ? SHIFT_TYPES.OFF.id : activeShift;
+    
+    const newShifts = { ...shifts };
+    if (!newShifts[staffId]) newShifts[staffId] = new Array(daysInMonth).fill(SHIFT_TYPES.OFF.id);
+    newShifts[staffId][day] = nextShift;
+    
+    updateGlobalShifts(newShifts, requests);
+  };
+
+  const handleMagicFill = () => {
+    const staffIds = staff.map(s => s.id);
+    const draft = generateDraftShift(staffIds, requests, daysInMonth);
+    updateGlobalShifts(draft, requests);
+  };
+
+  const alerts = checkShiftRules(shifts, daysInMonth);
+
+  const openStaffModal = async () => {
+    setTempStaff(staff.map(s => ({ ...s })));
+    const regSnap = await getDocs(collection(db, "staff_registrations"));
+    const regs = {};
+    regSnap.forEach(doc => { regs[doc.id] = doc.data(); });
+    setRegData(regs);
+    setIsStaffModalOpen(true);
+  };
+
+  const handleSaveStaff = async () => {
+    const validStaff = tempStaff.filter(s => s.name.trim() !== "" && s.id.trim() !== "");
+    await updateStaffConfig(validStaff);
+    
+    for (const s of validStaff) {
+      if (!regData[s.id]) {
+        const newKey = generateKey();
+        await setDoc(doc(db, "staff_registrations", s.id.toLowerCase()), {
+          name: s.name,
+          key: newKey,
+          isClaimed: false
+        });
+      }
+    }
+    setIsStaffModalOpen(false);
+  };
+
+  if (loading) return <div className="p-10 text-center">Loading...</div>;
+
+  return (
+    <div className="flex flex-col h-screen overflow-hidden p-6 gap-6 bg-slate-900/50">
+      <header className="flex justify-between items-center glass-card p-4 px-8">
+        <div>
+          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            Shift Master <span className="text-sm font-normal text-slate-400 ml-2">管理者ダッシュボード</span>
+          </h1>
+          <p className="text-sm text-slate-400">{selectedMonth.getFullYear()}年 {selectedMonth.getMonth() + 1}月</p>
+        </div>
+        
+        <div className="flex gap-3">
+          <button onClick={() => window.print()} className="glass p-2 px-4 rounded-lg flex items-center gap-2 hover:bg-white/10 transition">
+            <Printer size={18} /> 印刷用
+          </button>
+          <button onClick={handleMagicFill} className="bg-blue-600 p-2 px-4 rounded-lg flex items-center gap-2 hover:bg-blue-500 transition shadow-lg shadow-blue-500/20">
+            <Wand2 size={18} /> 自動生成
+          </button>
+          <button onClick={logout} className="glass p-2 px-4 rounded-lg flex items-center gap-2 hover:bg-red-500/20 text-red-400 transition">
+            <LogOut size={18} /> ログアウト
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 flex gap-6 overflow-hidden">
+        <aside className="w-64 glass-card p-4 flex flex-col gap-6 overflow-y-auto">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">シフトタイプ選択</h3>
+            <div className="flex flex-col gap-2">
+              {Object.values(SHIFT_TYPES).map(type => (
+                <button
+                  key={type.id}
+                  onClick={() => setActiveShift(type.id)}
+                  className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                    activeShift === type.id 
+                      ? 'border-blue-500 bg-blue-500/20 shadow-inner' 
+                      : 'border-transparent hover:bg-white/5'
+                  }`}
+                >
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: type.color }} />
+                  <span className="text-sm font-medium">{type.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">スタッフ設定</h3>
+            <button 
+              onClick={openStaffModal}
+              className="w-full p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 flex flex-col items-center gap-2 group hover:bg-blue-500/10 transition-all border-dashed"
+            >
+              <Users size={24} className="text-blue-400 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">スタッフ名・ID管理</span>
+            </button>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">警告・アラート ({alerts.length})</h3>
+            <div className="flex flex-col gap-2">
+              {alerts.length === 0 ? (
+                <p className="text-xs text-emerald-400 bg-emerald-400/10 p-3 rounded-lg">✓ すべての条件を満たしています</p>
+              ) : (
+                alerts.map((alert, i) => (
+                  <div key={i} className={`p-3 rounded-lg flex gap-3 text-xs ${alert.type === 'error' ? 'bg-red-400/10 text-red-400' : 'bg-amber-400/10 text-amber-400'}`}>
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <div>
+                      <strong>{alert.day + 1}日:</strong> {alert.message}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </aside>
+
+        <div className="flex-1 glass-card overflow-auto relative rounded-2xl">
+          <table className="w-full border-collapse">
+            <thead className="sticky top-0 z-20">
+              <tr className="glass bg-slate-800">
+                <th className="sticky left-0 z-30 p-4 min-w-[200px] text-left border-b border-white/5 bg-slate-800">スタッフ名</th>
+                {daysArray.map(day => (
+                  <th key={day} className="p-3 text-sm font-medium border-b border-white/5 min-w-[48px] text-center">{day}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s, sIdx) => (
+                <tr key={sIdx} className="hover:bg-white/5 transition-colors border-b border-white/5">
+                  <td className="sticky left-0 z-10 p-4 text-sm font-medium bg-slate-900/80 backdrop-blur-md border-r border-white/5">
+                    <div className="flex flex-col">
+                      <span>{s.name}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{s.id}</span>
+                    </div>
+                  </td>
+                  {daysArray.map((day, dIdx) => {
+                    const shiftId = (shifts[s.id] && shifts[s.id][dIdx]) || SHIFT_TYPES.OFF.id;
+                    const shift = SHIFT_TYPES[Object.keys(SHIFT_TYPES).find(k => SHIFT_TYPES[k].id === shiftId)];
+                    const isRequestedHoliday = requests[s.id]?.includes(dIdx);
+                    
+                    return (
+                      <td
+                        key={dIdx}
+                        onClick={() => handleCellClick(s.id, dIdx)}
+                        className={`p-1 cursor-pointer transition-all relative ${isRequestedHoliday ? 'bg-red-400/5' : ''}`}
+                      >
+                        <div 
+                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-transform active:scale-95 shadow-lg ${
+                            shiftId !== SHIFT_TYPES.OFF.id ? 'glass border-white/10' : ''
+                          }`}
+                          style={{ backgroundColor: shiftId !== SHIFT_TYPES.OFF.id ? `${shift.color}33` : 'transparent', color: shift.color }}
+                        >
+                          {shift.short}
+                        </div>
+                        {isRequestedHoliday && shiftId === SHIFT_TYPES.OFF.id && (
+                          <div className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full" title="休暇希望" />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="sticky bottom-0 z-20">
+              <tr className="glass border-t border-white/10">
+                <td className="sticky left-0 p-4 text-xs font-bold uppercase bg-slate-800">出勤人数</td>
+                {daysArray.map((_, dIdx) => {
+                  let dailyCount = 0;
+                  staff.forEach(s => {
+                    if (shifts[s.id] && shifts[s.id][dIdx] !== SHIFT_TYPES.OFF.id) dailyCount++;
+                  });
+                  return (
+                    <td key={dIdx} className={`p-4 text-center text-sm font-bold ${dailyCount < RULES.MIN_STAFF_PER_DAY ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {dailyCount}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </main>
+
+      {isStaffModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card w-full max-w-4xl flex flex-col max-h-[90vh] shadow-2xl overflow-hidden border-white/10">
+            <header className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+              <h2 className="text-xl font-bold flex items-center gap-3">
+                <Users className="text-blue-400" /> スタッフID・招待管理
+              </h2>
+              <button onClick={() => setIsStaffModalOpen(false)} className="hover:bg-white/10 p-2 rounded-full transition">
+                <X size={20} />
+              </button>
+            </header>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] text-slate-500 uppercase tracking-widest border-b border-white/5">
+                    <th className="pb-3 px-2">名前</th>
+                    <th className="pb-3 px-2">スタッフID (ログイン用)</th>
+                    <th className="pb-3 px-2">招待キー / 状態</th>
+                    <th className="pb-3 px-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {tempStaff.map((s, index) => (
+                    <tr key={index} className="group">
+                      <td className="py-3 px-2">
+                        <input type="text" value={s.name} onChange={(e) => { const newStaff = [...tempStaff]; newStaff[index].name = e.target.value; setTempStaff(newStaff); }} placeholder="スタッフ名" className="bg-white/5 border border-white/10 rounded-lg p-2 text-sm w-full focus:border-blue-500 outline-none" />
+                      </td>
+                      <td className="py-3 px-2">
+                        <input type="text" value={s.id} onChange={(e) => { const newStaff = [...tempStaff]; newStaff[index].id = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''); setTempStaff(newStaff); }} placeholder="user01" className="bg-white/5 border border-white/10 rounded-lg p-2 text-sm w-full font-mono focus:border-blue-500 outline-none" />
+                      </td>
+                      <td className="py-3 px-2">
+                        {regData[s.id] ? (
+                          <div className="flex items-center gap-3">
+                            {regData[s.id].isClaimed ? (
+                              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full font-bold">登録済み</span>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="bg-amber-500/20 text-amber-400 px-2 py-1 rounded font-mono text-xs">{regData[s.id].key}</span>
+                                <span className="text-[10px] text-amber-500/60 font-bold">未登録</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 italic">保存時にキーを発行します</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-2">
+                        <button onClick={() => setTempStaff(tempStaff.filter((_, i) => i !== index))} className="p-2 text-slate-500 hover:text-red-400 transition">
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button onClick={() => setTempStaff([...tempStaff, { id: `user${tempStaff.length + 1}`, name: "" }])} className="w-full p-4 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-2 text-xs text-slate-500 hover:bg-white/5 hover:border-white/30 transition mt-6">
+                <Plus size={16} /> 新しいスタッフを追加
+              </button>
+            </div>
+            
+            <footer className="p-6 border-t border-white/5 bg-white/5 flex justify-between items-center">
+              <p className="text-[10px] text-slate-500 max-w-sm">※ IDは一度設定すると変更しないでください。</p>
+              <div className="space-x-3">
+                <button onClick={() => setIsStaffModalOpen(false)} className="px-6 py-3 rounded-xl text-sm font-bold text-slate-400 hover:text-white transition">キャンセル</button>
+                <button onClick={handleSaveStaff} className="px-10 py-3 bg-blue-600 rounded-xl text-sm font-black shadow-xl shadow-blue-500/20 hover:bg-blue-500 active:scale-95 transition-all">設定を保存して発行</button>
+              </div>
+            </footer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdminView;
