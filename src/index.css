@@ -124,7 +124,41 @@ ul {
 .h-14 { height: 3.5rem; }
 .w-16 { width: 4rem; }
 .h-16 { height: 4rem; }
-.max-w-lg { max-width: 32rem; }
+.max-w-lg { overflow-wrap: break-word; max-width: 32rem; }
+
+/* --- Color & Utility Palette (!important to override component defaults) --- */
+.bg-red-500 { background-color: #ef4444 !important; background-image: none !important; }
+.bg-red-500\/10 { background-color: rgba(239, 68, 68, 0.1) !important; }
+.bg-red-500\/20 { background-color: rgba(239, 68, 68, 0.2) !important; }
+.bg-emerald-500 { background-color: #10b981 !important; }
+.bg-emerald-500\/20 { background-color: rgba(16, 185, 129, 0.2) !important; }
+.bg-white\/5 { background-color: rgba(255, 255, 255, 0.05) !important; }
+.bg-white\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
+.bg-white\/20 { background-color: rgba(255, 255, 255, 0.2) !important; }
+
+.border-red-400 { border-color: #f87171 !important; }
+.border-red-500 { border-color: #ef4444 !important; }
+.border-emerald-500\/20 { border-color: rgba(16, 185, 129, 0.2) !important; }
+.border-white\/5 { border-color: rgba(255, 255, 255, 0.05) !important; }
+.border-white\/10 { border-color: rgba(255, 255, 255, 0.1) !important; }
+.border-white\/20 { border-color: rgba(255, 255, 255, 0.2) !important; }
+
+.text-white { color: #ffffff !important; }
+.text-red-400 { color: #f87171 !important; }
+.text-blue-400 { color: #60a5fa !important; }
+.text-emerald-400 { color: #34d399 !important; }
+.text-slate-300 { color: #cbd5e1 !important; }
+.text-slate-400 { color: #94a3b8 !important; }
+.text-slate-500 { color: #64748b !important; }
+.text-slate-600 { color: #475569 !important; }
+
+.shadow-red-500\/30 { box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3) !important; }
+.ring-2 { box-shadow: 0 0 0 2px var(--accent-primary) !important; }
+.ring-white\/10 { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1) !important; }
+.ring-white\/30 { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3) !important; }
+
+.cursor-pointer { cursor: pointer !important; }
+.z-10 { z-index: 10 !important; }
 
 /* Grid System */
 .grid { display: grid; }
