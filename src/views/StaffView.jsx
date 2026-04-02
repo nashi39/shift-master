@@ -143,31 +143,38 @@ const StaffView = () => {
                 <button
                   key={day}
                   onClick={() => toggleHoliday(idx)}
-                  className={`calendar-day relative aspect-square rounded-[1.2rem] flex flex-col items-center justify-between p-1.5 transition-all duration-300 active:scale-90 overflow-hidden border-2 ${
+                  className={`calendar-day relative aspect-square rounded-[1.2rem] flex flex-col items-center justify-between p-1.5 transition-all duration-300 active:scale-90 overflow-hidden border-2 cursor-pointer z-10 ${
                     isSelected 
-                      ? 'bg-red-500/20 border-red-500 shadow-lg shadow-red-500/10' 
+                      ? 'bg-red-500/10 border-red-500 shadow-lg shadow-red-500/10' 
                       : hasShift
                         ? 'bg-white/5 border-white/20 shadow-xl'
                         : 'border-white/5 text-slate-300 hover:bg-white/10 hover:border-white/10'
                   }`}
                 >
-                  <span className={`text-[10px] font-black self-start ml-0.5 ${
-                    isSelected ? 'text-red-400' : !isSelected && isSunday ? 'text-red-400' : !isSelected && isSaturday ? 'text-blue-400' : 'text-slate-400'
-                  }`}>
-                    {day}
-                  </span>
+                  <div className="w-full flex justify-between items-start">
+                    <span className={`text-[10px] font-black ml-0.5 ${
+                      isSelected ? 'text-red-400' : !isSelected && isSunday ? 'text-red-400' : !isSelected && isSaturday ? 'text-blue-400' : 'text-slate-400'
+                    }`}>
+                      {day}
+                    </span>
+                    {isSelected && (
+                      <div className="bg-red-500 rounded-full p-0.5 shadow-md shadow-red-500/50 animate-in zoom-in">
+                        <Check size={8} strokeWidth={4} className="text-white" />
+                      </div>
+                    )}
+                  </div>
                   
                   {hasShift && (
                     <div 
-                      className="w-full py-1 rounded-lg text-[10px] font-black text-white shadow-lg animate-in zoom-in duration-300"
+                      className="w-full py-1 rounded-lg text-[10px] font-black text-white shadow-lg animate-in zoom-in duration-300 mb-0.5"
                       style={{ backgroundColor: shift.color }}
                     >
                       {shift.short}
                     </div>
                   )}
                   
-                  {isSelected && !hasShift && (
-                    <div className="mb-1 w-2 h-2 rounded-full bg-red-400 shadow-sm shadow-red-500/50" />
+                  {!hasShift && !isSelected && (
+                    <div className="h-2" /> // Spacer for alignment
                   )}
                 </button>
               );
