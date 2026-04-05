@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db, doc, getDoc, setDoc } from '../utils/firebase';
+import { auth, db, doc, getDoc, setDoc, updateDoc } from '../utils/firebase';
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -11,8 +11,14 @@ import {
 
 const AuthContext = createContext();
 
-// Helper to convert Staff ID into a dummy email
-const getEmailFromId = (staffId) => `${staffId.toLowerCase()}@shift-master.internal`;
+// Helper to generate internal email from ID (Normalized to lowercase)
+const getEmailFromId = (id) => {
+  const normalizedId = id.trim().toLowerCase();
+  if (normalizedId === 'product') {
+    return 'product@admin.shift-master.internal';
+  }
+  return `${normalizedId}@shift-master.internal`;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -20,8 +26,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // ログイン情報を「現在のタブ（セッション）のみ」に制限する設定
-    // これにより、新しいタブを開いたときは再度ログインが必要になります
+    // ログイン情報を保持する設定
     setPersistence(auth, browserSessionPersistence)
       .catch((err) => console.error("Persistence error:", err));
 
@@ -46,41 +51,58 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  const login = async (staffId, password) => {
-    const email = getEmailFromId(staffId);
+  const login = async (id, password) => {
+    const email = getEmailFromId(id);
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  const setupPassword = async (staffId, invitationKey, password) => {
-    // 1. Verify invitation key in Firestore
-    const staffDoc = await getDoc(doc(db, "staff_registrations", staffId.toLowerCase()));
+  const setupPassword = async (id, invitationKey, password) => {
+    const normalizedId = id.trim().toLowerCase();
+    const isAdmin = normalizedId === 'product';
+    const registrationColl = isAdmin ? "admin_registrations" : "staff_registrations";
     
-    if (!staffDoc.exists() || staffDoc.data().key !== invitationKey) {
-      throw new Error("IDまたは招待キーが正しくありません。");
-    }
-    
-    if (staffDoc.data().isClaimed) {
-      throw new Error("このIDは既に登録済みです。通常のログインをご利用ください。");
+    // 1. Verify invitation key
+    const regDoc = await getDoc(doc(db, registrationColl, normalizedId));
+    if (!regDoc.exists()) throw new Error("IDが見つかりません");
+    if (regDoc.data().invitationKey !== invitationKey) throw new Error("招待キーが正しくありません");
+
+    const email = getEmailFromId(normalizedId);
+    let user;
+
+    try {
+      // 2. Try to create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      user = userCredential.user;
+    } catch (authError) {
+      // 3. Fallback: If user already exists, allow re-setup using sign-in
+      if (authError.code === 'auth/email-already-in-use' && isAdmin) {
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          user = userCredential.user;
+        } catch (signInError) {
+          throw new Error("このIDは既に作成されていますが、以前と異なるパスワードが入力されました。");
+        }
+      } else {
+        throw authError;
+      }
     }
 
-    // 2. Create the Auth account
-    const email = getEmailFromId(staffId);
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    // 3. Mark as claimed and save profile
-    await setDoc(doc(db, "users", userCredential.user.uid), {
-      staffId: staffId.toLowerCase(),
-      name: staffDoc.data().name,
-      role: 'staff',
+    // 4. Update/Save User Profile with Role
+    const role = isAdmin ? 'admin' : 'staff';
+    const userData = {
+      uid: user.uid,
+      id: normalizedId,
+      name: isAdmin ? "管理者" : regDoc.data().name,
+      role: role,
       createdAt: new Date().toISOString()
-    });
+    };
+    
+    await setDoc(doc(db, "users", user.uid), userData);
 
-    await setDoc(doc(db, "staff_registrations", staffId.toLowerCase()), {
-      isClaimed: true,
-      uid: userCredential.user.uid
-    }, { merge: true });
+    // 5. Mark as registered
+    await updateDoc(doc(db, registrationColl, normalizedId), { registered: true });
 
-    return userCredential.user;
+    return user;
   };
 
   const logout = () => signOut(auth);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, User, Lock, AlertCircle } from 'lucide-react';
+import { db, getDoc, doc } from '../utils/firebase';
 
 const LoginView = () => {
   const { login } = useAuth();
@@ -16,10 +17,19 @@ const LoginView = () => {
     setError('');
     setLoading(true);
     try {
-      await login(staffId, password);
-      navigate('/');
+      const normalizedId = staffId.trim().toLowerCase();
+      const userCredential = await login(normalizedId, password);
+      
+      // Get role from users collection after successful login
+      const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+      const role = userDoc.exists() ? userDoc.data().role : 'staff';
+
+      setTimeout(() => {
+        navigate(role === 'admin' ? "/admin" : "/");
+      }, 500);
     } catch (err) {
-      setError('IDまたはパスワードが正しくありません。');
+      console.error("Login Error:", err);
+      setError("IDまたはパスワードが正しくありません。");
     } finally {
       setLoading(false);
     }

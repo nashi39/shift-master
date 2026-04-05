@@ -16,25 +16,21 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Redirect based on hostname (Integrated with Auth)
-const HomeRedirect = () => {
-  const { user } = useAuth();
-  const hostname = window.location.hostname.toLowerCase();
-  const searchParams = new URLSearchParams(window.location.search);
-  const isForcedAdmin = searchParams.get('mode') === 'admin';
-
-  console.log("Current hostname:", hostname);
-  console.log("Forced admin mode:", isForcedAdmin);
-
-  // 'admin' という文字列が含まれているか、?mode=admin がある場合は管理者画面へ
-  if (isForcedAdmin || hostname.includes('admin') || hostname.includes('localhost')) {
-    return <Navigate to="/admin" replace />;
+const AdminRoute = ({ children }) => {
+  const { user, userData, loading } = useAuth();
+  if (loading) return null;
+  if (!user || userData?.role !== 'admin') {
+    return <Navigate to="/login" replace />;
   }
+  return children;
+};
 
-  // スタッフ側のドメインでログインしていない場合はログイン画面へ
-  if (!user) return <Navigate to="/login" replace />;
-
-  return <Navigate to="/staff" replace />;
+// Role-based Home component
+const Home = () => {
+  const { userData, loading } = useAuth();
+  if (loading) return null;
+  if (userData?.role === 'admin') return <AdminView />;
+  return <StaffView />;
 };
 
 function App() {
@@ -43,17 +39,25 @@ function App() {
       <ShiftProvider>
         <Router>
           <Routes>
-            {/* Auth Routes */}
             <Route path="/login" element={<LoginView />} />
             <Route path="/setup" element={<SetupPasswordView />} />
-
-            {/* Protected Application Routes */}
-            <Route path="/" element={<HomeRedirect />} />
-            {/* AdminView はスタッフ登録のために公開設定に変更 */}
-            <Route path="/admin" element={<AdminView />} />
-            <Route path="/staff" element={<ProtectedRoute><StaffView /></ProtectedRoute>} />
-
-            {/* Catch-all */}
+            <Route 
+              path="/" 
+              element={
+                <ProtectedRoute>
+                  <Home />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <AdminRoute>
+                  <AdminView />
+                </AdminRoute>
+              } 
+            />
+            {/* Fallback for old mode=admin style */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
