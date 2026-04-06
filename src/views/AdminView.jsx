@@ -11,9 +11,10 @@ const AdminView = () => {
   const { logout } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [activeShift, setActiveShift] = useState(SHIFT_TYPES.DAY.id);
-  
+
   // Staff Management State
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [isLocalLoading, setIsLocalLoading] = useState(false);
   const [tempStaff, setTempStaff] = useState([]);
   const [regData, setRegData] = useState({});
 
@@ -25,11 +26,11 @@ const AdminView = () => {
   const handleCellClick = (staffId, day) => {
     const currentShift = shifts[staffId]?.[day] || SHIFT_TYPES.OFF.id;
     const nextShift = currentShift === activeShift ? SHIFT_TYPES.OFF.id : activeShift;
-    
+
     const newShifts = { ...shifts };
     if (!newShifts[staffId]) newShifts[staffId] = new Array(daysInMonth).fill(SHIFT_TYPES.OFF.id);
     newShifts[staffId][day] = nextShift;
-    
+
     updateGlobalShifts(newShifts, requests);
   };
 
@@ -50,24 +51,93 @@ const AdminView = () => {
     setIsStaffModalOpen(true);
   };
 
+  const handleReinvite = async (staffId) => {
+    const normalizedId = staffId.toLowerCase();
+    const email = `testshift81+${normalizedId}@gmail.com`;
+
+    if (!window.confirm(`${staffId} の登録をリセットして再招待しますか？\n\n送信先: ${email}\n※Firebaseにこのアドレスで登録されている必要があります。`)) return;
+    
+    setIsLocalLoading(true);
+    try {
+      // 1. Trigger password reset email FIRST
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      const { auth } = await import('../utils/firebase');
+      
+      try {
+        await sendPasswordResetEmail(auth, email);
+      } catch (authError) {
+        if (authError.code === 'auth/user-not-found') {
+          throw new Error(`送信失敗: ${email} というユーザーが存在しません。Firebaseコンソールのメールアドレスを確認してください。`);
+        }
+        throw authError;
+      }
+
+      // 2. If email sent successfully, reset registration in Firestore
+      const newKey = generateKey();
+      await setDoc(doc(db, "staff_registrations", normalizedId), {
+        name: tempStaff.find(s => s.id === staffId)?.name || "",
+        invitationKey: newKey,
+        registered: false
+      });
+
+      // 3. Delete user profile to revoke current access
+      const { query, where, getDocs, deleteDoc } = await import('firebase/firestore');
+      const uQuery = query(collection(db, "users"), where("id", "==", normalizedId));
+      const uSnap = await getDocs(uQuery);
+      for (const uDoc of uSnap.docs) {
+        await deleteDoc(doc(db, "users", uDoc.id));
+      }
+
+      // Refresh UI data
+      const regSnap = await getDocs(collection(db, "staff_registrations"));
+      const regs = {};
+      regSnap.forEach(doc => { regs[doc.id] = doc.data(); });
+      setRegData(regs);
+
+      alert(`成功: 再設定メールを送信しました。\n新しい招待キー: ${newKey}\n\nスタッフはメールのリンクからパスワードを再設定後、新しいキーでログインできます。`);
+    } catch (err) {
+      console.error("Reinvite Error:", err);
+      alert(`失敗: ${err.message || err.code}`);
+    } finally {
+      setIsLocalLoading(false);
+    }
+  };
+
   const handleSaveStaff = async () => {
     const validStaff = tempStaff.filter(s => s.name.trim() !== "" && s.id.trim() !== "");
+
+    // Determine which staff were removed
+    const currentIds = staff.map(s => s.id.toLowerCase());
+    const newIds = validStaff.map(s => s.id.toLowerCase());
+    const removedIds = currentIds.filter(id => !newIds.includes(id));
+
+    // Cleanup removed staff data from Firestore
+    const { deleteDoc, query, where, getDocs } = await import('firebase/firestore');
+    for (const rid of removedIds) {
+      await deleteDoc(doc(db, "staff_registrations", rid));
+      const uQuery = query(collection(db, "users"), where("id", "==", rid));
+      const uSnap = await getDocs(uQuery);
+      for (const uDoc of uSnap.docs) {
+        await deleteDoc(doc(db, "users", uDoc.id));
+      }
+    }
+
     await updateStaffConfig(validStaff);
-    
+
     for (const s of validStaff) {
       if (!regData[s.id]) {
         const newKey = generateKey();
         await setDoc(doc(db, "staff_registrations", s.id.toLowerCase()), {
           name: s.name,
-          key: newKey,
-          isClaimed: false
+          invitationKey: newKey,
+          registered: false
         });
       }
     }
     setIsStaffModalOpen(false);
   };
 
-  if (loading) return <div className="p-10 text-center">Loading...</div>;
+  if (loading && !isStaffModalOpen) return <div className="p-10 text-center">Loading...</div>;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden p-6 gap-6 bg-slate-900/50">
@@ -78,7 +148,7 @@ const AdminView = () => {
           </h1>
           <p className="text-sm text-slate-400">{selectedMonth.getFullYear()}年 {selectedMonth.getMonth() + 1}月</p>
         </div>
-        
+
         <div className="flex gap-3">
           <button onClick={() => window.print()} className="glass p-2 px-4 rounded-lg flex items-center gap-2 hover:bg-white/10 transition">
             <Printer size={18} /> 印刷用
@@ -101,11 +171,10 @@ const AdminView = () => {
                 <button
                   key={type.id}
                   onClick={() => setActiveShift(type.id)}
-                  className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
-                    activeShift === type.id 
-                      ? 'border-blue-500 bg-blue-500/20 shadow-inner' 
+                  className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${activeShift === type.id
+                      ? 'border-blue-500 bg-blue-500/20 shadow-inner'
                       : 'border-transparent hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   <div className="w-4 h-4 rounded-full" style={{ backgroundColor: type.color }} />
                   <span className="text-sm font-medium">{type.label}</span>
@@ -116,7 +185,7 @@ const AdminView = () => {
 
           <div>
             <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">スタッフ設定</h3>
-            <button 
+            <button
               onClick={openStaffModal}
               className="w-full p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 flex flex-col items-center gap-2 group hover:bg-blue-500/10 transition-all border-dashed"
             >
@@ -167,17 +236,16 @@ const AdminView = () => {
                     const shiftId = (shifts[s.id] && shifts[s.id][dIdx]) || SHIFT_TYPES.OFF.id;
                     const shift = SHIFT_TYPES[Object.keys(SHIFT_TYPES).find(k => SHIFT_TYPES[k].id === shiftId)];
                     const isRequestedHoliday = requests[s.id]?.includes(dIdx);
-                    
+
                     return (
                       <td
                         key={dIdx}
                         onClick={() => handleCellClick(s.id, dIdx)}
                         className={`p-1 cursor-pointer transition-all relative ${isRequestedHoliday ? 'bg-red-400/5' : ''}`}
                       >
-                        <div 
-                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-transform active:scale-95 shadow-lg ${
-                            shiftId !== SHIFT_TYPES.OFF.id ? 'glass border-white/10' : ''
-                          }`}
+                        <div
+                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-transform active:scale-95 shadow-lg ${shiftId !== SHIFT_TYPES.OFF.id ? 'glass border-white/10' : ''
+                            }`}
                           style={{ backgroundColor: shiftId !== SHIFT_TYPES.OFF.id ? `${shift.color}33` : 'transparent', color: shift.color }}
                         >
                           {shift.short}
@@ -222,7 +290,7 @@ const AdminView = () => {
                 <X size={20} />
               </button>
             </header>
-            
+
             <div className="flex-1 overflow-y-auto p-6">
               <table className="w-full text-left">
                 <thead>
@@ -245,11 +313,21 @@ const AdminView = () => {
                       <td className="py-3 px-2">
                         {regData[s.id] ? (
                           <div className="flex items-center gap-3">
-                            {regData[s.id].isClaimed ? (
-                              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full font-bold">登録済み</span>
+                            {regData[s.id].registered ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full font-bold">登録済み</span>
+                                <button
+                                  onClick={() => handleReinvite(s.id)}
+                                  disabled={isLocalLoading}
+                                  className="p-1.5 hover:bg-white/10 text-slate-400 hover:text-blue-400 transition-all flex items-center gap-1 text-[10px] font-bold border border-white/5 rounded-md disabled:opacity-50"
+                                  title="再招待（パスワードリセット送信）"
+                                >
+                                  <Wand2 size={12} /> 再招待
+                                </button>
+                              </div>
                             ) : (
                               <div className="flex items-center gap-2">
-                                <span className="bg-amber-500/20 text-amber-400 px-2 py-1 rounded font-mono text-xs">{regData[s.id].key}</span>
+                                <span className="bg-amber-500/20 text-amber-400 px-2 py-1 rounded font-mono text-xs">{regData[s.id].invitationKey}</span>
                                 <span className="text-[10px] text-amber-500/60 font-bold">未登録</span>
                               </div>
                             )}
@@ -271,7 +349,7 @@ const AdminView = () => {
                 <Plus size={16} /> 新しいスタッフを追加
               </button>
             </div>
-            
+
             <footer className="p-6 border-t border-white/5 bg-white/5 flex justify-between items-center">
               <p className="text-[10px] text-slate-500 max-w-sm">※ IDは一度設定すると変更しないでください。</p>
               <div className="space-x-3">

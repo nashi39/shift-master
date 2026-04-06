@@ -14,10 +14,8 @@ const AuthContext = createContext();
 // Helper to generate internal email from ID (Normalized to lowercase)
 const getEmailFromId = (id) => {
   const normalizedId = id.trim().toLowerCase();
-  if (normalizedId === 'product') {
-    return 'product@admin.shift-master.internal';
-  }
-  return `${normalizedId}@shift-master.internal`;
+  // Admin and Staff both use the same provider with alias
+  return `testshift81+${normalizedId}@gmail.com`;
 };
 
 export const AuthProvider = ({ children }) => {
@@ -37,6 +35,10 @@ export const AuthProvider = ({ children }) => {
           const userDoc = await getDoc(doc(db, "users", authUser.uid));
           if (userDoc.exists()) {
             setUserData(userDoc.data());
+          } else {
+            // プロファイル（Firestore）が消されている場合は強制ログアウト
+            console.warn("User profile not found. Force logging out.");
+            signOut(auth);
           }
         } catch (error) {
           console.error("User data fetch error:", error);
@@ -83,7 +85,7 @@ export const AuthProvider = ({ children }) => {
           throw new Error("このIDは既に作成されていますが、以前と異なるパスワードが入力されました。");
         }
       } else {
-        throw authError;
+        throw authError; // Staff case or other errors
       }
     }
 
@@ -105,10 +107,27 @@ export const AuthProvider = ({ children }) => {
     return user;
   };
 
+  // New: Send password reset email after verifying invitation key
+  const sendResetEmailByKey = async (id, invitationKey) => {
+    const normalizedId = id.trim().toLowerCase();
+    const isAdmin = normalizedId === 'product';
+    const registrationColl = isAdmin ? "admin_registrations" : "staff_registrations";
+
+    // Verify key in Firestore
+    const regDoc = await getDoc(doc(db, registrationColl, normalizedId));
+    if (!regDoc.exists()) throw new Error("IDが見つかりません");
+    if (regDoc.data().invitationKey !== invitationKey) throw new Error("紹介キーが正しくありません");
+
+    const email = getEmailFromId(normalizedId);
+    const { sendPasswordResetEmail } = await import('firebase/auth');
+    await sendPasswordResetEmail(auth, email);
+    return true;
+  };
+
   const logout = () => signOut(auth);
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, login, setupPassword, logout }}>
+    <AuthContext.Provider value={{ user, userData, loading, login, setupPassword, sendResetEmailByKey, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );
