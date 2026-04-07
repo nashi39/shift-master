@@ -76,22 +76,22 @@ export const AuthProvider = ({ children }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       user = userCredential.user;
     } catch (authError) {
-      // 3. Fallback: If user already exists, allow re-setup using sign-in
-      if (authError.code === 'auth/email-already-in-use' && isAdmin) {
+      // 3. Fallback: If user already exists (Re-invite case), allow re-setup using sign-in
+      if (authError.code === 'auth/email-already-in-use') {
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           user = userCredential.user;
         } catch (signInError) {
-          throw new Error("このIDは既に作成されていますが、以前と異なるパスワードが入力されました。");
+          throw new Error("このIDは既に作成されています。以前と同じ、あるいはリセット後の新しいパスワードを入力してください。");
         }
       } else {
-        throw authError; // Staff case or other errors
+        throw authError;
       }
     }
 
     // 4. Update/Save User Profile with Role
     const role = isAdmin ? 'admin' : 'staff';
-    const userData = {
+    const profileData = {
       uid: user.uid,
       id: normalizedId,
       name: isAdmin ? "管理者" : regDoc.data().name,
@@ -99,7 +99,7 @@ export const AuthProvider = ({ children }) => {
       createdAt: new Date().toISOString()
     };
     
-    await setDoc(doc(db, "users", user.uid), userData);
+    await setDoc(doc(db, "users", user.uid), profileData);
 
     // 5. Mark as registered
     await updateDoc(doc(db, registrationColl, normalizedId), { registered: true });
@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }) => {
     // Verify key in Firestore
     const regDoc = await getDoc(doc(db, registrationColl, normalizedId));
     if (!regDoc.exists()) throw new Error("IDが見つかりません");
-    if (regDoc.data().invitationKey !== invitationKey) throw new Error("紹介キーが正しくありません");
+    if (regDoc.data().invitationKey !== invitationKey) throw new Error("招待キーが正しくありません");
 
     const email = getEmailFromId(normalizedId);
     const { sendPasswordResetEmail } = await import('firebase/auth');

@@ -22,14 +22,26 @@ const LoginView = () => {
       
       // Get role from users collection after successful login
       const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
-      const role = userDoc.exists() ? userDoc.data().role : 'staff';
+      
+      if (!userDoc.exists()) {
+        // プロフィールがない場合は再設定が必要な状態
+        setError("アカウントの初期設定（または再設定）が必要です。下のリンクからセットアップを行ってください。");
+        setLoading(false);
+        return;
+      }
+
+      const role = userDoc.data().role || 'staff';
 
       setTimeout(() => {
         navigate(role === 'admin' ? "/admin" : "/");
       }, 500);
     } catch (err) {
       console.error("Login Error:", err);
-      setError("IDまたはパスワードが正しくありません。");
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        setError("IDまたはパスワードが正しくありません。");
+      } else {
+        setError("ログインに失敗しました。IDとパスワードを確認してください。");
+      }
     } finally {
       setLoading(false);
     }
@@ -46,9 +58,21 @@ const LoginView = () => {
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3 text-sm animate-shake">
-            <AlertCircle size={18} />
-            {error}
+          <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-start gap-3 text-sm">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold">{error}</p>
+                {error.includes("初期設定") && (
+                  <button
+                    onClick={() => navigate('/setup')}
+                    className="mt-3 w-full py-2.5 bg-blue-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-blue-400 transition-colors shadow-lg shadow-blue-500/30"
+                  >
+                    セットアップ画面へ移動する
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

@@ -236,22 +236,28 @@ const AdminView = () => {
                     const shiftId = (shifts[s.id] && shifts[s.id][dIdx]) || SHIFT_TYPES.OFF.id;
                     const shift = SHIFT_TYPES[Object.keys(SHIFT_TYPES).find(k => SHIFT_TYPES[k].id === shiftId)];
                     const isRequestedHoliday = requests[s.id]?.includes(dIdx);
+                    const isOff = shiftId === SHIFT_TYPES.OFF.id;
 
                     return (
                       <td
                         key={dIdx}
                         onClick={() => handleCellClick(s.id, dIdx)}
-                        className={`p-1 cursor-pointer transition-all relative ${isRequestedHoliday ? 'bg-red-400/5' : ''}`}
+                        className={`p-1 cursor-pointer transition-all relative ${isRequestedHoliday ? 'bg-red-500/20' : ''}`}
                       >
                         <div
-                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-transform active:scale-95 shadow-lg ${shiftId !== SHIFT_TYPES.OFF.id ? 'glass border-white/10' : ''
+                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-transform active:scale-95 shadow-lg ${!isOff ? 'glass border-white/10' : isRequestedHoliday ? 'bg-red-500/10 border border-red-500/30' : ''
                             }`}
-                          style={{ backgroundColor: shiftId !== SHIFT_TYPES.OFF.id ? `${shift.color}33` : 'transparent', color: shift.color }}
+                          style={{
+                            backgroundColor: !isOff ? `${shift.color}33` : 'transparent',
+                            color: !isOff ? shift.color : isRequestedHoliday ? '#f87171' : 'transparent'
+                          }}
                         >
-                          {shift.short}
+                          {!isOff ? shift.short : isRequestedHoliday ? '休' : ''}
                         </div>
-                        {isRequestedHoliday && shiftId === SHIFT_TYPES.OFF.id && (
-                          <div className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full" title="休暇希望" />
+                        {isRequestedHoliday && (
+                          <div className={`absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-lg shadow-red-500/50 flex items-center justify-center border border-white/20`} title="休暇希望">
+                            <div className="w-1 h-1 bg-white rounded-full" />
+                          </div>
                         )}
                       </td>
                     );
@@ -320,15 +326,25 @@ const AdminView = () => {
                                   onClick={() => handleReinvite(s.id)}
                                   disabled={isLocalLoading}
                                   className="p-1.5 hover:bg-white/10 text-slate-400 hover:text-blue-400 transition-all flex items-center gap-1 text-[10px] font-bold border border-white/5 rounded-md disabled:opacity-50"
-                                  title="再招待（パスワードリセット送信）"
+                                  title="登録をリセットしてメール送信"
                                 >
-                                  <Wand2 size={12} /> 再招待
+                                  <Wand2 size={12} /> 再招待(リセット)
                                 </button>
                               </div>
                             ) : (
                               <div className="flex items-center gap-2">
-                                <span className="bg-amber-500/20 text-amber-400 px-2 py-1 rounded font-mono text-xs">{regData[s.id].invitationKey}</span>
-                                <span className="text-[10px] text-amber-500/60 font-bold">未登録</span>
+                                <div className="flex flex-col">
+                                  <span className="bg-amber-500/20 text-amber-400 px-2 py-1 rounded font-mono text-xs">{regData[s.id].invitationKey}</span>
+                                  <span className="text-[10px] text-amber-500/60 font-bold">未登録</span>
+                                </div>
+                                <button
+                                  onClick={() => handleReinvite(s.id)}
+                                  disabled={isLocalLoading}
+                                  className="p-1.5 hover:bg-white/10 text-slate-400 hover:text-blue-400 transition-all flex items-center gap-1 text-[10px] font-bold border border-white/5 rounded-md disabled:opacity-50"
+                                  title="パスワード再設定メールを送信"
+                                >
+                                  <Share2 size={12} /> メール送信
+                                </button>
                               </div>
                             )}
                           </div>
