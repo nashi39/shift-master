@@ -23,8 +23,8 @@ const StaffView = () => {
 
   // Initialize local requests when data is loaded
   useEffect(() => {
-    if (userData && requests[userData.staffId]) {
-      setLocalRequests(requests[userData.staffId]);
+    if (userData && requests[userData.id]) {
+      setLocalRequests(requests[userData.id]);
     }
   }, [userData, requests]);
 
@@ -39,7 +39,7 @@ const StaffView = () => {
 
   const handleSave = async () => {
     if (!userData) return;
-    const newRequests = { ...requests, [userData.staffId]: localRequests };
+    const newRequests = { ...requests, [userData.id]: localRequests };
     await updateGlobalShifts(null, newRequests);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -89,7 +89,7 @@ const StaffView = () => {
               <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">Authenticated Staff</p>
               <h2 className="text-2xl font-black">{userData.name}</h2>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[9px] text-slate-400 font-mono bg-white/5 border border-white/10 px-2 py-0.5 rounded-full uppercase">ID: {userData.staffId}</span>
+                <span className="text-[9px] text-slate-400 font-mono bg-white/5 border border-white/10 px-2 py-0.5 rounded-full uppercase">ID: {userData.id}</span>
                 <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-black uppercase border border-emerald-500/20 tracking-tighter">ActiveNow</span>
               </div>
             </div>
@@ -135,7 +135,7 @@ const StaffView = () => {
               const isSaturday = dayOfWeek === 6;
               
               // Find assigned shift
-              const assignedShiftId = (shifts[userData.staffId] && shifts[userData.staffId][idx]) || SHIFT_TYPES.OFF.id;
+              const assignedShiftId = (shifts[userData.id] && shifts[userData.id][idx]) || SHIFT_TYPES.OFF.id;
               const shift = Object.values(SHIFT_TYPES).find(s => s.id === assignedShiftId);
               const hasShift = assignedShiftId !== SHIFT_TYPES.OFF.id;
 

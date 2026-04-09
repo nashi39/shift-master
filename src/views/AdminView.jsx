@@ -94,7 +94,16 @@ const AdminView = () => {
       regSnap.forEach(doc => { regs[doc.id] = doc.data(); });
       setRegData(regs);
 
-      alert(`成功: 再設定メールを送信しました。\n新しい招待キー: ${newKey}\n\nスタッフはメールのリンクからパスワードを再設定後、新しいキーでログインできます。`);
+      // Copy invite message to clipboard
+      const setupUrl = `${window.location.origin}/setup`;
+      const inviteMsg = `【シフト管理システム 再設定のご案内】\n\nパスワード再設定メールを送信しました。\nメール内のリンクからパスワードを更新した後、以下の招待キーを使用して再度セットアップを行ってください。\n\n■招待キー: ${newKey}\n■セットアップURL: ${setupUrl}`;
+      
+      try {
+        await navigator.clipboard.writeText(inviteMsg);
+        alert(`成功: 再設定メールを送信しました。\n\n新しい招待キー(${newKey})を含む案内文をクリップボードにコピーしました。そのままLINEやメールに貼り付けてスタッフへ送れます。`);
+      } catch (copyErr) {
+        alert(`成功: 再設定メールを送信しました。\n新しい招待キー: ${newKey}\n\n※クリップボードへのコピーに失敗しました。手動でキーを控えて伝えてください。`);
+      }
     } catch (err) {
       console.error("Reinvite Error:", err);
       alert(`失敗: ${err.message || err.code}`);
@@ -218,8 +227,13 @@ const AdminView = () => {
             <thead className="sticky top-0 z-20">
               <tr className="glass bg-slate-800">
                 <th className="sticky left-0 z-30 p-4 min-w-[200px] text-left border-b border-white/5 bg-slate-800">スタッフ名</th>
-                {daysArray.map(day => (
-                  <th key={day} className="p-3 text-sm font-medium border-b border-white/5 min-w-[48px] text-center">{day}</th>
+                {daysArray.map((day) => (
+                  <th 
+                    key={day} 
+                    className="p-3 text-sm font-black border-b border-white/5 min-w-[48px] text-center text-slate-300"
+                  >
+                    {day}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -242,22 +256,26 @@ const AdminView = () => {
                       <td
                         key={dIdx}
                         onClick={() => handleCellClick(s.id, dIdx)}
-                        className={`p-1 cursor-pointer transition-all relative ${isRequestedHoliday ? 'bg-red-500/20' : ''}`}
+                        className={`p-1 cursor-pointer transition-all relative border border-transparent ${isRequestedHoliday ? 'bg-red-500/10' : ''}`}
                       >
                         <div
-                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-transform active:scale-95 shadow-lg ${!isOff ? 'glass border-white/10' : isRequestedHoliday ? 'bg-red-500/10 border border-red-500/30' : ''
-                            }`}
+                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all active:scale-95 shadow-lg ${
+                            !isOff 
+                              ? 'glass border-white/10' 
+                              : isRequestedHoliday 
+                                ? 'bg-red-500/60 border-2 border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.4)]' 
+                                : 'hover:bg-white/5'
+                          }`}
                           style={{
-                            backgroundColor: !isOff ? `${shift.color}33` : 'transparent',
-                            color: !isOff ? shift.color : isRequestedHoliday ? '#f87171' : 'transparent'
+                            backgroundColor: !isOff ? `${shift.color}33` : undefined,
+                            color: !isOff ? shift.color : isRequestedHoliday ? 'white' : 'transparent',
+                            backdropFilter: isRequestedHoliday ? 'none' : undefined // 休み希望時はボカシをオフにして鮮明に
                           }}
                         >
-                          {!isOff ? shift.short : isRequestedHoliday ? '休' : ''}
+                          {!isOff ? shift.short : isRequestedHoliday ? '休み希望' : ''}
                         </div>
                         {isRequestedHoliday && (
-                          <div className={`absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-lg shadow-red-500/50 flex items-center justify-center border border-white/20`} title="休暇希望">
-                            <div className="w-1 h-1 bg-white rounded-full" />
-                          </div>
+                          <div className="absolute -top-0.5 -right-0.5 z-10 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 shadow-lg animate-pulse" />
                         )}
                       </td>
                     );
