@@ -263,16 +263,16 @@ const AdminView = () => {
                             !isOff 
                               ? 'glass border-white/10' 
                               : isRequestedHoliday 
-                                ? 'bg-red-500/60 border-2 border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.4)]' 
+                                ? 'bg-red-500/80 border-2 border-red-400/50 shadow-[0_0_15px_rgba(239,68,68,0.4)]' 
                                 : 'hover:bg-white/5'
                           }`}
                           style={{
                             backgroundColor: !isOff ? `${shift.color}33` : undefined,
-                            color: !isOff ? shift.color : isRequestedHoliday ? 'white' : 'transparent',
-                            backdropFilter: isRequestedHoliday ? 'none' : undefined // 休み希望時はボカシをオフにして鮮明に
+                            color: !isOff ? shift.color : 'transparent',
+                            backdropFilter: isRequestedHoliday ? 'none' : undefined
                           }}
                         >
-                          {!isOff ? shift.short : isRequestedHoliday ? '休み希望' : ''}
+                          {!isOff ? shift.short : ''}
                         </div>
                         {isRequestedHoliday && (
                           <div className="absolute -top-0.5 -right-0.5 z-10 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 shadow-lg animate-pulse" />
