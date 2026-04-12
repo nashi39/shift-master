@@ -114,6 +114,14 @@ const AdminView = () => {
 
   const handleSaveStaff = async () => {
     const validStaff = tempStaff.filter(s => s.name.trim() !== "" && s.id.trim() !== "");
+    
+    // Check for duplicate IDs
+    const lowerIds = validStaff.map(s => s.id.toLowerCase());
+    const hasDuplicate = lowerIds.some((id, index) => lowerIds.indexOf(id) !== index);
+    if (hasDuplicate) {
+      alert("エラー: 画面内で重複しているIDがあります。各スタッフに一意のIDを設定してください。");
+      return;
+    }
 
     // Determine which staff were removed
     const currentIds = staff.map(s => s.id.toLowerCase());
@@ -144,6 +152,25 @@ const AdminView = () => {
       }
     }
     setIsStaffModalOpen(false);
+  };
+
+  const handleAddStaff = () => {
+    setTempStaff(prev => {
+      // Generate a unique ID that doesn't exist in the LATEST state (prev) or regData
+      let nextNum = prev.length + 1;
+      let newId = `user${nextNum}`;
+      const existingIds = new Set([
+        ...prev.map(s => s.id.toLowerCase()),
+        ...Object.keys(regData).map(k => k.toLowerCase())
+      ]);
+
+      while (existingIds.has(newId)) {
+        nextNum++;
+        newId = `user${nextNum}`;
+      }
+
+      return [...prev, { id: newId, name: "" }];
+    });
   };
 
   if (loading && !isStaffModalOpen) return <div className="p-10 text-center">Loading...</div>;
@@ -326,14 +353,29 @@ const AdminView = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {tempStaff.map((s, index) => (
-                    <tr key={index} className="group">
-                      <td className="py-3 px-2">
-                        <input type="text" value={s.name} onChange={(e) => { const newStaff = [...tempStaff]; newStaff[index].name = e.target.value; setTempStaff(newStaff); }} placeholder="スタッフ名" className="bg-white/5 border border-white/10 rounded-lg p-2 text-sm w-full focus:border-blue-500 outline-none" />
-                      </td>
-                      <td className="py-3 px-2">
-                        <input type="text" value={s.id} onChange={(e) => { const newStaff = [...tempStaff]; newStaff[index].id = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''); setTempStaff(newStaff); }} placeholder="user01" className="bg-white/5 border border-white/10 rounded-lg p-2 text-sm w-full font-mono focus:border-blue-500 outline-none" />
-                      </td>
+                  {tempStaff.map((s, index) => {
+                    const isDuplicate = tempStaff.filter(item => item.id.toLowerCase() === s.id.toLowerCase()).length > 1;
+                    return (
+                      <tr key={index} className="group">
+                        <td className="py-3 px-2">
+                          <input type="text" value={s.name} onChange={(e) => { const newStaff = [...tempStaff]; newStaff[index].name = e.target.value; setTempStaff(newStaff); }} placeholder="スタッフ名" className="bg-white/5 border border-white/10 rounded-lg p-2 text-sm w-full focus:border-blue-500 outline-none" />
+                        </td>
+                        <td className="py-3 px-2">
+                          <div className="relative">
+                            <input 
+                              type="text" 
+                              value={s.id} 
+                              onChange={(e) => { const newStaff = [...tempStaff]; newStaff[index].id = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''); setTempStaff(newStaff); }} 
+                              placeholder="user01" 
+                              className={`bg-white/5 border rounded-lg p-2 text-sm w-full font-mono focus:border-blue-500 outline-none transition-colors ${
+                                isDuplicate ? 'border-red-500 bg-red-500/10' : 'border-white/10'
+                              }`} 
+                            />
+                            {isDuplicate && (
+                              <span className="absolute -bottom-4 left-1 text-[8px] text-red-500 font-bold uppercase">ID重複あり</span>
+                            )}
+                          </div>
+                        </td>
                       <td className="py-3 px-2">
                         {regData[s.id] ? (
                           <div className="flex items-center gap-3">
@@ -376,10 +418,11 @@ const AdminView = () => {
                         </button>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
+                  );
+                })}
+              </tbody>
               </table>
-              <button onClick={() => setTempStaff([...tempStaff, { id: `user${tempStaff.length + 1}`, name: "" }])} className="w-full p-4 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-2 text-xs text-slate-500 hover:bg-white/5 hover:border-white/30 transition mt-6">
+              <button onClick={handleAddStaff} className="w-full p-4 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-2 text-xs text-slate-500 hover:bg-white/5 hover:border-white/30 transition mt-6">
                 <Plus size={16} /> 新しいスタッフを追加
               </button>
             </div>
