@@ -20,11 +20,11 @@ export const generateDraftShift = (staffIds, availabilityRequests, daysInMonth) 
     let assignedToday = 0;
     
     // Sort staff by work count to balance (simple heuristic)
-    const availableStaff = staffIds.filter(id => {
-      const isHolidayRequested = availabilityRequests[id]?.includes(day);
-      const isUnderMaxDays = staffWorkCount[id] < RULES.MAX_CONSECUTIVE_DAYS;
+    const availableStaff = (staffIds || []).filter(id => {
+      const isHolidayRequested = availabilityRequests?.[id]?.includes(day);
+      const isUnderMaxDays = (staffWorkCount?.[id] || 0) < RULES.MAX_CONSECUTIVE_DAYS;
       return !isHolidayRequested && isUnderMaxDays;
-    }).sort((a, b) => staffWorkCount[a] - staffWorkCount[b]);
+    }).sort((a, b) => (staffWorkCount?.[a] || 0) - (staffWorkCount?.[b] || 0));
 
     // Try to assign at least MIN_STAFF_PER_DAY
     for (const staffId of availableStaff) {
@@ -62,7 +62,7 @@ export const checkShiftRules = (table, daysInMonth) => {
   for (let day = 0; day < daysInMonth; day++) {
     let count = 0;
     staffIds.forEach(id => {
-      if (table[id][day] !== SHIFT_TYPES.OFF.id) count++;
+      if (table?.[id]?.[day] && table[id][day] !== SHIFT_TYPES.OFF.id) count++;
     });
 
     if (count < RULES.MIN_STAFF_PER_DAY) {
@@ -78,7 +78,7 @@ export const checkShiftRules = (table, daysInMonth) => {
   staffIds.forEach(id => {
     let consecutive = 0;
     for (let day = 0; day < daysInMonth; day++) {
-      if (table[id][day] !== SHIFT_TYPES.OFF.id) {
+      if (table?.[id]?.[day] && table[id][day] !== SHIFT_TYPES.OFF.id) {
         consecutive++;
         if (consecutive > RULES.MAX_CONSECUTIVE_DAYS) {
           alerts.push({

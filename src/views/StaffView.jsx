@@ -2,12 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useShifts } from '../context/ShiftContext';
 import { useAuth } from '../context/AuthContext';
 import { SHIFT_TYPES } from '../utils/constants';
-import { Check, Calendar as CalendarIcon, User, Save, LogOut, Info } from 'lucide-react';
+import { Check, Calendar as CalendarIcon, User, Save, LogOut, Info, MessageSquare } from 'lucide-react';
 
 const StaffView = () => {
-  const { shifts, requests, updateGlobalShifts, loading: shiftsLoading } = useShifts();
+  const { 
+    shifts = {}, 
+    requests = {}, 
+    memos = {}, 
+    updateGlobalShifts, 
+    loading: shiftsLoading 
+  } = useShifts();
   const { userData, logout } = useAuth();
   const [localRequests, setLocalRequests] = useState([]);
+  const [localMemo, setLocalMemo] = useState('');
   const [saved, setSaved] = useState(false);
 
   // Calendar calculations
@@ -21,12 +28,13 @@ const StaffView = () => {
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const paddingDays = Array.from({ length: firstDayOfMonth }, (_, i) => i);
 
-  // Initialize local requests when data is loaded
+  // Initialize local states when data is loaded
   useEffect(() => {
-    if (userData && requests[userData.id]) {
-      setLocalRequests(requests[userData.id]);
+    if (userData && userData.id) {
+      if (requests?.[userData.id]) setLocalRequests(requests?.[userData.id] || []);
+      if (memos?.[userData.id]) setLocalMemo(memos?.[userData.id] || '');
     }
-  }, [userData, requests]);
+  }, [userData, requests, memos]);
 
   const toggleHoliday = (dayIdx) => {
     if (localRequests.includes(dayIdx)) {
@@ -39,8 +47,9 @@ const StaffView = () => {
 
   const handleSave = async () => {
     if (!userData) return;
-    const newRequests = { ...requests, [userData.id]: localRequests };
-    await updateGlobalShifts(null, newRequests);
+    const newRequests = { ...(requests || {}), [userData.id]: localRequests };
+    const newMemos = { ...(memos || {}), [userData.id]: localMemo };
+    await updateGlobalShifts(null, newRequests, newMemos);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -135,8 +144,8 @@ const StaffView = () => {
               const isSaturday = dayOfWeek === 6;
               
               // Find assigned shift
-              const assignedShiftId = (shifts[userData.id] && shifts[userData.id][idx]) || SHIFT_TYPES.OFF.id;
-              const shift = Object.values(SHIFT_TYPES).find(s => s.id === assignedShiftId);
+              const assignedShiftId = (shifts?.[userData?.id] && shifts?.[userData?.id][idx]) || SHIFT_TYPES.OFF.id;
+              const shift = Object.values(SHIFT_TYPES).find(s => s.id === assignedShiftId) || SHIFT_TYPES.OFF;
               const hasShift = assignedShiftId !== SHIFT_TYPES.OFF.id;
 
               return (
@@ -195,6 +204,23 @@ const StaffView = () => {
               <span className="text-[10px] font-bold text-red-400">休み希望</span>
             </div>
           </div>
+        </div>
+
+        {/* Memo Area */}
+        <div className="glass-card p-5 border border-white/10 shadow-2xl space-y-4">
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center gap-2">
+            <MessageSquare size={14} className="text-blue-400" />
+            連絡事項・理由
+          </label>
+          <textarea
+            value={localMemo}
+            onChange={(e) => {
+              setLocalMemo(e.target.value);
+              setSaved(false);
+            }}
+            placeholder="例: 法事のため / 旅行のため等（任意）"
+            className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] p-4 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all min-h-[120px] resize-none placeholder:text-slate-600"
+          />
         </div>
 
         {/* Action Button - Sticky at bottom */}

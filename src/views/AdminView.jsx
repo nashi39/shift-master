@@ -3,11 +3,19 @@ import { useShifts } from '../context/ShiftContext';
 import { db, doc, setDoc, getDocs, collection } from '../utils/firebase';
 import { SHIFT_TYPES, RULES } from '../utils/constants';
 import { generateDraftShift, checkShiftRules } from '../utils/allocationEngine';
-import { AlertTriangle, Wand2, Printer, Share2, Users, X, Plus, Trash2, LogOut } from 'lucide-react';
+import { AlertTriangle, Wand2, Printer, Share2, Users, X, Plus, Trash2, LogOut, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const AdminView = () => {
-  const { shifts, requests, staff, updateGlobalShifts, updateStaffConfig, loading } = useShifts();
+  const { 
+    shifts = {}, 
+    requests = {}, 
+    memos = {}, 
+    staff = [], 
+    updateGlobalShifts, 
+    updateStaffConfig, 
+    loading 
+  } = useShifts();
   const { logout } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [activeShift, setActiveShift] = useState(SHIFT_TYPES.DAY.id);
@@ -24,10 +32,10 @@ const AdminView = () => {
   const generateKey = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const handleCellClick = (staffId, day) => {
-    const currentShift = shifts[staffId]?.[day] || SHIFT_TYPES.OFF.id;
+    const currentShift = shifts?.[staffId]?.[day] || SHIFT_TYPES.OFF.id;
     const nextShift = currentShift === activeShift ? SHIFT_TYPES.OFF.id : activeShift;
 
-    const newShifts = { ...shifts };
+    const newShifts = { ...(shifts || {}) };
     if (!newShifts[staffId]) newShifts[staffId] = new Array(daysInMonth).fill(SHIFT_TYPES.OFF.id);
     newShifts[staffId][day] = nextShift;
 
@@ -35,9 +43,9 @@ const AdminView = () => {
   };
 
   const handleMagicFill = () => {
-    const staffIds = staff.map(s => s.id);
-    const draft = generateDraftShift(staffIds, requests, daysInMonth);
-    updateGlobalShifts(draft, requests);
+    const staffIds = staff?.map(s => s.id) || [];
+    const draft = generateDraftShift(staffIds, requests || {}, daysInMonth);
+    updateGlobalShifts(draft, requests || {});
   };
 
   const alerts = checkShiftRules(shifts, daysInMonth);
@@ -56,13 +64,13 @@ const AdminView = () => {
     const email = `testshift81+${normalizedId}@gmail.com`;
 
     if (!window.confirm(`${staffId} の登録をリセットして再招待しますか？\n\n送信先: ${email}\n※Firebaseにこのアドレスで登録されている必要があります。`)) return;
-    
+
     setIsLocalLoading(true);
     try {
       // 1. Trigger password reset email FIRST
       const { sendPasswordResetEmail } = await import('firebase/auth');
       const { auth } = await import('../utils/firebase');
-      
+
       try {
         await sendPasswordResetEmail(auth, email);
       } catch (authError) {
@@ -97,7 +105,7 @@ const AdminView = () => {
       // Copy invite message to clipboard
       const setupUrl = `${window.location.origin}/setup`;
       const inviteMsg = `【シフト管理システム 再設定のご案内】\n\nパスワード再設定メールを送信しました。\nメール内のリンクからパスワードを更新した後、以下の招待キーを使用して再度セットアップを行ってください。\n\n■招待キー: ${newKey}\n■セットアップURL: ${setupUrl}`;
-      
+
       try {
         await navigator.clipboard.writeText(inviteMsg);
         alert(`成功: 再設定メールを送信しました。\n\n新しい招待キー(${newKey})を含む案内文をクリップボードにコピーしました。そのままLINEやメールに貼り付けてスタッフへ送れます。`);
@@ -114,7 +122,7 @@ const AdminView = () => {
 
   const handleSaveStaff = async () => {
     const validStaff = tempStaff.filter(s => s.name.trim() !== "" && s.id.trim() !== "");
-    
+
     // Check for duplicate IDs
     const lowerIds = validStaff.map(s => s.id.toLowerCase());
     const hasDuplicate = lowerIds.some((id, index) => lowerIds.indexOf(id) !== index);
@@ -142,7 +150,7 @@ const AdminView = () => {
     await updateStaffConfig(validStaff);
 
     for (const s of validStaff) {
-      if (!regData[s.id]) {
+      if (!regData?.[s.id]) {
         const newKey = generateKey();
         await setDoc(doc(db, "staff_registrations", s.id.toLowerCase()), {
           name: s.name,
@@ -208,8 +216,8 @@ const AdminView = () => {
                   key={type.id}
                   onClick={() => setActiveShift(type.id)}
                   className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${activeShift === type.id
-                      ? 'border-blue-500 bg-blue-500/20 shadow-inner'
-                      : 'border-transparent hover:bg-white/5'
+                    ? 'border-blue-500 bg-blue-500/20 shadow-inner'
+                    : 'border-transparent hover:bg-white/5'
                     }`}
                 >
                   <div className="w-4 h-4 rounded-full" style={{ backgroundColor: type.color }} />
@@ -255,8 +263,8 @@ const AdminView = () => {
               <tr className="glass bg-slate-800">
                 <th className="sticky left-0 z-30 p-4 min-w-[200px] text-left border-b border-white/5 bg-slate-800">スタッフ名</th>
                 {daysArray.map((day) => (
-                  <th 
-                    key={day} 
+                  <th
+                    key={day}
                     className="p-3 text-sm font-black border-b border-white/5 min-w-[48px] text-center text-slate-300"
                   >
                     {day}
@@ -268,15 +276,26 @@ const AdminView = () => {
               {staff.map((s, sIdx) => (
                 <tr key={sIdx} className="hover:bg-white/5 transition-colors border-b border-white/5">
                   <td className="sticky left-0 z-10 p-4 text-sm font-medium bg-slate-900/80 backdrop-blur-md border-r border-white/5">
-                    <div className="flex flex-col">
-                      <span>{s.name}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">{s.id}</span>
+                    <div className="flex items-center gap-2 group">
+                      <div className="flex flex-col">
+                        <span>{s.name}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{s.id}</span>
+                      </div>
+                      {memos?.[s.id] && (
+                        <div
+                          className="p-1.5 rounded-full bg-blue-500/10 text-blue-400 cursor-help hover:bg-blue-500/20 transition-all opacity-60 group-hover:opacity-100"
+                          title={`連絡事項: ${memos?.[s.id] || ""}`}
+                        >
+                          <MessageSquare size={14} />
+                        </div>
+                      )}
                     </div>
                   </td>
                   {daysArray.map((day, dIdx) => {
-                    const shiftId = (shifts[s.id] && shifts[s.id][dIdx]) || SHIFT_TYPES.OFF.id;
-                    const shift = SHIFT_TYPES[Object.keys(SHIFT_TYPES).find(k => SHIFT_TYPES[k].id === shiftId)];
-                    const isRequestedHoliday = requests[s.id]?.includes(dIdx);
+                    const shiftId = (shifts?.[s.id] && shifts?.[s.id][dIdx]) || SHIFT_TYPES.OFF.id;
+                    const shiftKey = Object.keys(SHIFT_TYPES).find(k => SHIFT_TYPES[k].id === shiftId);
+                    const shift = shiftKey ? SHIFT_TYPES[shiftKey] : SHIFT_TYPES.OFF;
+                    const isRequestedHoliday = requests?.[s.id]?.includes(dIdx);
                     const isOff = shiftId === SHIFT_TYPES.OFF.id;
 
                     return (
@@ -286,13 +305,12 @@ const AdminView = () => {
                         className={`p-1 cursor-pointer transition-all relative border border-transparent ${isRequestedHoliday ? 'bg-red-500/10' : ''}`}
                       >
                         <div
-                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all active:scale-95 shadow-lg ${
-                            !isOff 
-                              ? 'glass border-white/10' 
-                              : isRequestedHoliday 
-                                ? 'bg-red-500/80 border-2 border-red-400/50 shadow-[0_0_15px_rgba(239,68,68,0.4)]' 
+                          className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all active:scale-95 shadow-lg ${!isOff
+                              ? 'glass border-white/10'
+                              : isRequestedHoliday
+                                ? 'bg-red-500/80 border-2 border-red-400/50 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
                                 : 'hover:bg-white/5'
-                          }`}
+                            }`}
                           style={{
                             backgroundColor: !isOff ? `${shift.color}33` : undefined,
                             color: !isOff ? shift.color : 'transparent',
@@ -316,7 +334,7 @@ const AdminView = () => {
                 {daysArray.map((_, dIdx) => {
                   let dailyCount = 0;
                   staff.forEach(s => {
-                    if (shifts[s.id] && shifts[s.id][dIdx] !== SHIFT_TYPES.OFF.id) dailyCount++;
+                    if (shifts?.[s.id] && shifts?.[s.id][dIdx] !== SHIFT_TYPES.OFF.id) dailyCount++;
                   });
                   return (
                     <td key={dIdx} className={`p-4 text-center text-sm font-bold ${dailyCount < RULES.MIN_STAFF_PER_DAY ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -362,65 +380,64 @@ const AdminView = () => {
                         </td>
                         <td className="py-3 px-2">
                           <div className="relative">
-                            <input 
-                              type="text" 
-                              value={s.id} 
-                              onChange={(e) => { const newStaff = [...tempStaff]; newStaff[index].id = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''); setTempStaff(newStaff); }} 
-                              placeholder="user01" 
-                              className={`bg-white/5 border rounded-lg p-2 text-sm w-full font-mono focus:border-blue-500 outline-none transition-colors ${
-                                isDuplicate ? 'border-red-500 bg-red-500/10' : 'border-white/10'
-                              }`} 
+                            <input
+                              type="text"
+                              value={s.id}
+                              onChange={(e) => { const newStaff = [...tempStaff]; newStaff[index].id = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''); setTempStaff(newStaff); }}
+                              placeholder="user01"
+                              className={`bg-white/5 border rounded-lg p-2 text-sm w-full font-mono focus:border-blue-500 outline-none transition-colors ${isDuplicate ? 'border-red-500 bg-red-500/10' : 'border-white/10'
+                                }`}
                             />
                             {isDuplicate && (
                               <span className="absolute -bottom-4 left-1 text-[8px] text-red-500 font-bold uppercase">ID重複あり</span>
                             )}
                           </div>
                         </td>
-                      <td className="py-3 px-2">
-                        {regData[s.id] ? (
-                          <div className="flex items-center gap-3">
-                            {regData[s.id].registered ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full font-bold">登録済み</span>
-                                <button
-                                  onClick={() => handleReinvite(s.id)}
-                                  disabled={isLocalLoading}
-                                  className="p-1.5 hover:bg-white/10 text-slate-400 hover:text-blue-400 transition-all flex items-center gap-1 text-[10px] font-bold border border-white/5 rounded-md disabled:opacity-50"
-                                  title="登録をリセットしてメール送信"
-                                >
-                                  <Wand2 size={12} /> 再招待(リセット)
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <div className="flex flex-col">
-                                  <span className="bg-amber-500/20 text-amber-400 px-2 py-1 rounded font-mono text-xs">{regData[s.id].invitationKey}</span>
-                                  <span className="text-[10px] text-amber-500/60 font-bold">未登録</span>
+                        <td className="py-3 px-2">
+                          {regData?.[s.id] ? (
+                            <div className="flex items-center gap-3">
+                              {regData?.[s.id]?.registered ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full font-bold">登録済み</span>
+                                  <button
+                                    onClick={() => handleReinvite(s.id)}
+                                    disabled={isLocalLoading}
+                                    className="p-1.5 hover:bg-white/10 text-slate-400 hover:text-blue-400 transition-all flex items-center gap-1 text-[10px] font-bold border border-white/5 rounded-md disabled:opacity-50"
+                                    title="登録をリセットしてメール送信"
+                                  >
+                                    <Wand2 size={12} /> 再招待(リセット)
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => handleReinvite(s.id)}
-                                  disabled={isLocalLoading}
-                                  className="p-1.5 hover:bg-white/10 text-slate-400 hover:text-blue-400 transition-all flex items-center gap-1 text-[10px] font-bold border border-white/5 rounded-md disabled:opacity-50"
-                                  title="パスワード再設定メールを送信"
-                                >
-                                  <Share2 size={12} /> メール送信
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-500 italic">保存時にキーを発行します</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-2">
-                        <button onClick={() => setTempStaff(tempStaff.filter((_, i) => i !== index))} className="p-2 text-slate-500 hover:text-red-400 transition">
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex flex-col">
+                                    <span className="bg-amber-500/20 text-amber-400 px-2 py-1 rounded font-mono text-xs">{regData?.[s.id]?.invitationKey}</span>
+                                    <span className="text-[10px] text-amber-500/60 font-bold">未登録</span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleReinvite(s.id)}
+                                    disabled={isLocalLoading}
+                                    className="p-1.5 hover:bg-white/10 text-slate-400 hover:text-blue-400 transition-all flex items-center gap-1 text-[10px] font-bold border border-white/5 rounded-md disabled:opacity-50"
+                                    title="パスワード再設定メールを送信"
+                                  >
+                                    <Share2 size={12} /> メール送信
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 italic">保存時にキーを発行します</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-2">
+                          <button onClick={() => setTempStaff(tempStaff.filter((_, i) => i !== index))} className="p-2 text-slate-500 hover:text-red-400 transition">
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
               <button onClick={handleAddStaff} className="w-full p-4 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-2 text-xs text-slate-500 hover:bg-white/5 hover:border-white/30 transition mt-6">
                 <Plus size={16} /> 新しいスタッフを追加
