@@ -282,11 +282,23 @@ const AdminView = () => {
                         <span className="text-[10px] text-slate-500 font-mono">{s.id}</span>
                       </div>
                       {memos?.[s.id] && (
-                        <div
-                          className="p-1.5 rounded-full bg-blue-500/10 text-blue-400 cursor-help hover:bg-blue-500/20 transition-all opacity-60 group-hover:opacity-100"
-                          title={`連絡事項: ${memos?.[s.id] || ""}`}
-                        >
-                          <MessageSquare size={14} />
+                        <div className="relative group/memo">
+                          <div
+                            className="p-1.5 rounded-full bg-blue-500/10 text-blue-400 cursor-help hover:bg-blue-500/20 transition-all opacity-60 group-hover/memo:opacity-100"
+                          >
+                            <MessageSquare size={14} />
+                          </div>
+                          {/* Rich Custom Tooltip */}
+                          <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-[100] w-64 p-4 glass rounded-2xl shadow-2xl opacity-0 invisible group-hover/memo:opacity-100 group-hover/memo:visible transition-all duration-300 translate-x-2 group-hover/memo:translate-x-0 pointer-events-none border border-white/10">
+                            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/5">
+                              <MessageSquare size={12} className="text-blue-400" />
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">連絡事項・理由</span>
+                            </div>
+                            <p className="text-xs leading-relaxed text-slate-200">
+                              {memos?.[s.id]}
+                            </p>
+                            <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45 border-l border-b border-white/10" />
+                          </div>
                         </div>
                       )}
                     </div>
