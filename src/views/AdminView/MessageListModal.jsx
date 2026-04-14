@@ -36,11 +36,6 @@ const MessageListModal = ({ isOpen, onClose, staff, memos }) => {
           )}
         </div>
 
-        <footer className="p-4 border-t border-white/5 bg-white/5 flex justify-end">
-          <button onClick={onClose} className="px-8 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-bold transition">
-            閉じる
-          </button>
-        </footer>
       </div>
     </div>
   );
