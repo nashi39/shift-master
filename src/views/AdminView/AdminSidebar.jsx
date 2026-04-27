@@ -2,9 +2,19 @@ import React from 'react';
 import { MessageSquare, Users, AlertTriangle } from 'lucide-react';
 import { SHIFT_TYPES } from '../../utils/constants';
 
+/**
+ * 管理者画面のサイドバーコンポーネント
+ * 
+ * @param {string} activeShift - 現在選択されている（入力モードの）シフトID
+ * @param {Function} setActiveShift - 入力モードのシフトを切り替える関数
+ * @param {Function} openStaffModal - スタッフ管理モーダルを開く関数
+ * @param {Function} setIsMemoModalOpen - メッセージ一覧モーダルの開閉を制御する関数
+ * @param {Array} alerts - 現在のシフト表における警告・違反情報の配列
+ */
 const AdminSidebar = ({ activeShift, setActiveShift, openStaffModal, setIsMemoModalOpen, alerts }) => {
   return (
     <aside className="w-64 glass-card p-4 flex flex-col gap-6 overflow-y-auto">
+      {/* シフトタイプ選択：クリックして入力するシフトの種類を選びます */}
       <div>
         <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">シフトタイプ選択</h3>
         <div className="flex flex-col gap-2">
@@ -24,6 +34,7 @@ const AdminSidebar = ({ activeShift, setActiveShift, openStaffModal, setIsMemoMo
         </div>
       </div>
 
+      {/* スタッフ設定：スタッフの名前やログインID、招待キーを管理するモーダルを起動 */}
       <div>
         <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">スタッフ設定</h3>
         <button
@@ -35,6 +46,7 @@ const AdminSidebar = ({ activeShift, setActiveShift, openStaffModal, setIsMemoMo
         </button>
       </div>
 
+      {/* コミュニケーション：スタッフからのメモ（連絡事項）を一括確認 */}
       <div>
         <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">コミュニケーション</h3>
         <button
@@ -46,6 +58,7 @@ const AdminSidebar = ({ activeShift, setActiveShift, openStaffModal, setIsMemoMo
         </button>
       </div>
 
+      {/* 警告・アラート：最低人数不足や連勤制限違反などを自動チェックして表示 */}
       <div>
         <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">警告・アラート ({alerts.length})</h3>
         <div className="flex flex-col gap-2">

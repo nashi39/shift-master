@@ -13,32 +13,43 @@ import StaffManagementModal from './StaffManagementModal';
 import MessageListModal from './MessageListModal';
 
 const AdminView = () => {
+  // シフトデータのリアルタイム読込・更新用Context
   const { 
-    shifts = {}, 
-    requests = {}, 
-    memos = {}, 
-    staff = [], 
-    updateGlobalShifts, 
-    updateStaffConfig, 
-    loading 
+    shifts = {},        // 全員の確定済みシフトデータ
+    requests = {},       // スタッフからの休み希望
+    memos = {},          // スタッフからの連絡事項
+    staff = [],          // スタッフ一覧（マスターデータ）
+    updateGlobalShifts,  // シフト表全体をFirestoreに保存する関数
+    updateStaffConfig,   // スタッフ構成（名前等）をFirestoreに保存する関数
+    loading              // データ読込中のフラグ
   } = useShifts();
+  
+  // 認証用Context
   const { logout } = useAuth();
   
+  // 表示中の月（現在は実行時の当月固定）
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  // 現在の入力モード（早番・遅番など、クリック時に適用されるシフトタイプ）
   const [activeShift, setActiveShift] = useState(SHIFT_TYPES.DAY.id);
 
-  // Staff Management State
-  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
-  const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
-  const [isLocalLoading, setIsLocalLoading] = useState(false);
-  const [tempStaff, setTempStaff] = useState([]);
-  const [regData, setRegData] = useState({});
+  // モーダル表示とローカル編集用のステート
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false); // スタッフ管理モーダル
+  const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);   // メッセージ一覧モーダル
+  const [isLocalLoading, setIsLocalLoading] = useState(false);     // 非同期処理中（メール送信等）の読込状態
+  const [tempStaff, setTempStaff] = useState([]);                  // 編集中のスタッフ構成（保存前の一時データ）
+  const [regData, setRegData] = useState({});                      // 招待キーや登録状況のデータ
 
+  // カレンダー計算：その月の日数と日付配列を生成
   const daysInMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
+  // 6桁の招待キー（英数字）を生成するユーティリティ
   const generateKey = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
+  /**
+   * シフト表のセルをクリックした際の入力処理
+   * 同じシフトなら休みに戻し、違うなら上書きするトグル動作
+   */
   const handleCellClick = (staffId, day) => {
     const currentShift = shifts?.[staffId]?.[day] || SHIFT_TYPES.OFF.id;
     const nextShift = currentShift === activeShift ? SHIFT_TYPES.OFF.id : activeShift;
@@ -47,19 +58,28 @@ const AdminView = () => {
     if (!newShifts[staffId]) newShifts[staffId] = new Array(daysInMonth).fill(SHIFT_TYPES.OFF.id);
     newShifts[staffId][day] = nextShift;
 
+    // 変更を即座にFirestoreへ同期
     updateGlobalShifts(newShifts, requests);
   };
 
+  /**
+   * AIによるシフト自動生成（下書き生成）を起動
+   */
   const handleMagicFill = () => {
     const staffIds = staff?.map(s => s.id) || [];
     const draft = generateDraftShift(staffIds, requests || {}, daysInMonth);
     updateGlobalShifts(draft, requests || {});
   };
 
+  // シフトルールの違反チェック（連勤数や人数不足など）をリアルタイム実行
   const alerts = checkShiftRules(shifts, daysInMonth);
 
+  /**
+   * スタッフ管理モーダルを開く際の初期化処理
+   * Firestoreから最新の登録・招待キー情報を取得する
+   */
   const openStaffModal = async () => {
-    setTempStaff(staff.map(s => ({ ...s })));
+    setTempStaff(staff.map(s => ({ ...s }))); // 現在のスタッフ一覧を編集用にコピー
     const regSnap = await getDocs(collection(db, "staff_registrations"));
     const regs = {};
     regSnap.forEach(doc => { regs[doc.id] = doc.data(); });
@@ -67,26 +87,34 @@ const AdminView = () => {
     setIsStaffModalOpen(true);
   };
 
+  /**
+   * スタッフの再招待・パスワードリセット処理
+   * 1. パスワードリセットメール送信
+   * 2. 新しい招待キーの発行
+   * 3. 既存のアカウントプロフィールのリセット
+   */
   const handleReinvite = async (staffId) => {
     const normalizedId = staffId.toLowerCase();
     const email = `testshift81+${normalizedId}@gmail.com`;
 
-    if (!window.confirm(`${staffId} の登録をリセットして再招待しますか？\n\n送信先: ${email}\n※Firebaseにこのアドレスで登録されている必要があります。`)) return;
+    if (!window.confirm(`${staffId} の登録をリセットして再招待しますか？\n\n送信先: ${email}`)) return;
 
     setIsLocalLoading(true);
     try {
       const { sendPasswordResetEmail } = await import('firebase/auth');
       const { auth } = await import('../../utils/firebase');
 
+      // Firebase Authのパスワードリセット機能を実行
       try {
         await sendPasswordResetEmail(auth, email);
       } catch (authError) {
         if (authError.code === 'auth/user-not-found') {
-          throw new Error(`送信失敗: ${email} というユーザーが存在しません。Firebaseコンソールのメールアドレスを確認してください。`);
+          throw new Error(`送信失敗: ${email} というユーザーが存在しません。`);
         }
         throw authError;
       }
 
+      // 新しい招待キーを生成してFirestoreを更新
       const newKey = generateKey();
       await setDoc(doc(db, "staff_registrations", normalizedId), {
         name: tempStaff.find(s => s.id === staffId)?.name || "",
@@ -94,6 +122,7 @@ const AdminView = () => {
         registered: false
       });
 
+      // 既存のユーザープロファイルを削除（再セットアップを強制するため）
       const { query, where, getDocs, deleteDoc } = await import('firebase/firestore');
       const uQuery = query(collection(db, "users"), where("id", "==", normalizedId));
       const uSnap = await getDocs(uQuery);
@@ -101,19 +130,21 @@ const AdminView = () => {
         await deleteDoc(doc(db, "users", uDoc.id));
       }
 
+      // 画面上の登録データを更新
       const regSnap = await getDocs(collection(db, "staff_registrations"));
       const regs = {};
       regSnap.forEach(doc => { regs[doc.id] = doc.data(); });
       setRegData(regs);
 
+      // クリップボードに案内文をコピー
       const setupUrl = `${window.location.origin}/setup`;
       const inviteMsg = `【シフト管理システム 再設定のご案内】\n\nパスワード再設定メールを送信しました。\nメール内のリンクからパスワードを更新した後、以下の招待キーを使用して再度セットアップを行ってください。\n\n■招待キー: ${newKey}\n■セットアップURL: ${setupUrl}`;
 
       try {
         await navigator.clipboard.writeText(inviteMsg);
-        alert(`成功: 再設定メールを送信しました。\n\n新しい招待キー(${newKey})を含む案内文をクリップボードにコピーしました。そのままLINEやメールに貼り付けてスタッフへ送れます。`);
+        alert(`成功: 再設定メールを送信しました。案内文をクリップボードにコピーしました。`);
       } catch (copyErr) {
-        alert(`成功: 再設定メールを送信しました。\n新しい招待キー: ${newKey}\n\n※クリップボードへのコピーに失敗しました。手動でキーを控えて伝えてください。`);
+        alert(`成功: 再設定メールを送信しました。\n新しい招待キー: ${newKey}`);
       }
     } catch (err) {
       console.error("Reinvite Error:", err);
@@ -123,20 +154,26 @@ const AdminView = () => {
     }
   };
 
+  /**
+   * 編集したスタッフ構成をFirestoreに保存
+   * 削除されたスタッフのアカウントクリーンアップも行う
+   */
   const handleSaveStaff = async () => {
     const validStaff = tempStaff.filter(s => s.name.trim() !== "" && s.id.trim() !== "");
     const lowerIds = validStaff.map(s => s.id.toLowerCase());
     const hasDuplicate = lowerIds.some((id, index) => lowerIds.indexOf(id) !== index);
     
     if (hasDuplicate) {
-      alert("エラー: 画面内で重複しているIDがあります。各スタッフに一意のIDを設定してください。");
+      alert("エラー: 画面内で重複しているIDがあります。");
       return;
     }
 
+    // 削除対象のスタッフを特定
     const currentIds = staff.map(s => s.id.toLowerCase());
     const newIds = validStaff.map(s => s.id.toLowerCase());
     const removedIds = currentIds.filter(id => !newIds.includes(id));
 
+    // 削除されたスタッフのデータをFirestoreから一掃
     const { deleteDoc, query, where, getDocs } = await import('firebase/firestore');
     for (const rid of removedIds) {
       await deleteDoc(doc(db, "staff_registrations", rid));
@@ -147,8 +184,10 @@ const AdminView = () => {
       }
     }
 
+    // スタッフマスターを更新
     await updateStaffConfig(validStaff);
 
+    // 新規追加されたスタッフに招待キーを発行
     for (const s of validStaff) {
       if (!regData?.[s.id]) {
         const newKey = generateKey();
@@ -162,6 +201,9 @@ const AdminView = () => {
     setIsStaffModalOpen(false);
   };
 
+  /**
+   * モーダル内で新規スタッフ入力行を追加する処理
+   */
   const handleAddStaff = () => {
     setTempStaff(prev => {
       let nextNum = prev.length + 1;
@@ -180,10 +222,12 @@ const AdminView = () => {
     });
   };
 
+  // データ読込中のプレースホルダー表示
   if (loading && !isStaffModalOpen) return <div className="p-10 text-center text-slate-400">Loading...</div>;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden p-6 gap-6 bg-slate-900/50">
+      {/* 上部ヘッダー */}
       <AdminHeader 
         selectedMonth={selectedMonth} 
         handleMagicFill={handleMagicFill} 
@@ -191,6 +235,7 @@ const AdminView = () => {
       />
 
       <main className="flex-1 flex gap-6 overflow-hidden">
+        {/* 左側サイドバー */}
         <AdminSidebar 
           activeShift={activeShift} 
           setActiveShift={setActiveShift} 
@@ -199,6 +244,7 @@ const AdminView = () => {
           alerts={alerts} 
         />
 
+        {/* 中央メインテーブル */}
         <ShiftTable 
           daysArray={daysArray} 
           staff={staff} 
@@ -211,6 +257,7 @@ const AdminView = () => {
         />
       </main>
 
+      {/* 各種モーダルコンポーネント */}
       <StaffManagementModal 
         isOpen={isStaffModalOpen} 
         onClose={() => setIsStaffModalOpen(false)} 
