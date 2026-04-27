@@ -19,24 +19,27 @@ const getEmailFromId = (id) => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);       // Firebase Authのユーザー情報
+  const [userData, setUserData] = useState(null); // Firestoreに保存されているユーザーの詳細プロフィール（名前、役割など）
+  const [loading, setLoading] = useState(true);   // 認証状態の確認中フラグ
 
+  // --- 認証状態の監視 (Auth Observer) ---
   useEffect(() => {
-    // ログイン情報を保持する設定
+    // セッション（タブを閉じてもログインを維持するか等）の設定
     setPersistence(auth, browserSessionPersistence)
       .catch((err) => console.error("Persistence error:", err));
 
+    // ログイン状態の変化（ログイン時、ログアウト時）を検知して状態を更新する
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
         setUser(authUser);
         try {
+          // ログインに成功したら、Firestoreからそのユーザーの詳しい情報（役割など）を取得
           const userDoc = await getDoc(doc(db, "users", authUser.uid));
           if (userDoc.exists()) {
             setUserData(userDoc.data());
           } else {
-            // プロファイル（Firestore）が消されている場合は強制ログアウト
+            // プロフィール（Firestore）が見つからない場合は不整合のためログアウト
             console.warn("User profile not found. Force logging out.");
             signOut(auth);
           }
@@ -44,26 +47,38 @@ export const AuthProvider = ({ children }) => {
           console.error("User data fetch error:", error);
         }
       } else {
+        // ログアウト状態の場合、情報をクリア
         setUser(null);
         setUserData(null);
       }
-      setLoading(false);
+      setLoading(false); // 確認完了
     });
 
     return () => unsubscribe();
   }, []);
 
+  /**
+   * 既存ユーザーのログイン処理
+   * @param {string} id - ユーザーID
+   * @param {string} password - パスワード
+   */
   const login = async (id, password) => {
     const email = getEmailFromId(id);
     return signInWithEmailAndPassword(auth, email, password);
   };
 
+  /**
+   * 初回登録（パスワード設定）処理
+   * @param {string} id - ユーザーID
+   * @param {string} invitationKey - 管理者から配布された招待キー
+   * @param {string} password - 設定したいパスワード
+   */
   const setupPassword = async (id, invitationKey, password) => {
     const normalizedId = id.trim().toLowerCase();
-    const isAdmin = normalizedId === 'product';
+    const isAdmin = normalizedId === 'product'; // 'product' というIDは管理者として扱う
     const registrationColl = isAdmin ? "admin_registrations" : "staff_registrations";
     
-    // 1. Verify invitation key
+    // 1. 招待キーの有効性を確認（Firestoreの登録情報をチェック）
     const regDoc = await getDoc(doc(db, registrationColl, normalizedId));
     if (!regDoc.exists()) throw new Error("IDが見つかりません");
     if (regDoc.data().invitationKey !== invitationKey) throw new Error("招待キーが正しくありません");
@@ -72,11 +87,11 @@ export const AuthProvider = ({ children }) => {
     let user;
 
     try {
-      // 2. Try to create Firebase Auth user
+      // 2. Firebase Authに新規ユーザーを作成
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       user = userCredential.user;
     } catch (authError) {
-      // 3. Fallback: If user already exists (Re-invite case), allow re-setup using sign-in
+      // すでにアカウントがある場合は再設定としてログインを試みる
       if (authError.code === 'auth/email-already-in-use') {
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -89,7 +104,7 @@ export const AuthProvider = ({ children }) => {
       }
     }
 
-    // 4. Update/Save User Profile with Role
+    // 4. Firestoreにプロフィールデータを作成/更新
     const role = isAdmin ? 'admin' : 'staff';
     const profileData = {
       uid: user.uid,
@@ -101,19 +116,20 @@ export const AuthProvider = ({ children }) => {
     
     await setDoc(doc(db, "users", user.uid), profileData);
 
-    // 5. Mark as registered
+    // 5. 登録完了フラグを立てる
     await updateDoc(doc(db, registrationColl, normalizedId), { registered: true });
 
     return user;
   };
 
-  // New: Send password reset email after verifying invitation key
+  /**
+   * 招待キーを使ってパスワードリセットメールを送信する
+   */
   const sendResetEmailByKey = async (id, invitationKey) => {
     const normalizedId = id.trim().toLowerCase();
     const isAdmin = normalizedId === 'product';
     const registrationColl = isAdmin ? "admin_registrations" : "staff_registrations";
 
-    // Verify key in Firestore
     const regDoc = await getDoc(doc(db, registrationColl, normalizedId));
     if (!regDoc.exists()) throw new Error("IDが見つかりません");
     if (regDoc.data().invitationKey !== invitationKey) throw new Error("招待キーが正しくありません");
@@ -124,6 +140,9 @@ export const AuthProvider = ({ children }) => {
     return true;
   };
 
+  /**
+   * ログアウト
+   */
   const logout = () => signOut(auth);
 
   return (

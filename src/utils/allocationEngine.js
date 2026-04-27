@@ -1,45 +1,52 @@
 import { RULES, SHIFT_TYPES } from './constants';
 
 /**
- * Basic auto-allocation logic
- * @param {Object} staffList - List of staff members
- * @param {Object} availabilityRequests - Record of holidays requested by staff { [staffId]: [dayIndex, ...] }
- * @param {number} daysInMonth - Number of days to generate for
- * @returns {Object} - Generated shift table { [staffId]: [shiftId, ...] }
+ * シフトの自動割り当てロジック（下書き生成）
+ * 
+ * 1. スタッフ全員を一度「休日」で初期化します。
+ * 2. 1日から順に、その日に働けるスタッフを探して割り当てます。
+ * 3. 「休み希望が出ているか」「連勤制限を超えていないか」をチェックします。
+ * 4. 勤務日数が少ないスタッフを優先的に割り当てることで、公平性を保ちます。
+ * 
+ * @param {Array} staffIds - スタッフIDの配列
+ * @param {Object} availabilityRequests - スタッフからの休み希望 { スタッフID: [休みの日(0-30), ...] }
+ * @param {number} daysInMonth - 月の日数
+ * @returns {Object} - 生成されたシフト表 { スタッフID: [シフトID, ...] }
  */
 export const generateDraftShift = (staffIds, availabilityRequests, daysInMonth) => {
   const table = {};
+  // 全員を「休日」で初期化
   staffIds.forEach(id => {
     table[id] = new Array(daysInMonth).fill(SHIFT_TYPES.OFF.id);
   });
 
-  const staffWorkCount = {}; // Track consecutive days { [staffId]: count }
+  const staffWorkCount = {}; // スタッフごとの現在の連勤数をカウント
   staffIds.forEach(id => staffWorkCount[id] = 0);
 
   for (let day = 0; day < daysInMonth; day++) {
     let assignedToday = 0;
     
-    // Sort staff by work count to balance (simple heuristic)
+    // その日に働けるスタッフを抽出
     const availableStaff = (staffIds || []).filter(id => {
       const isHolidayRequested = availabilityRequests?.[id]?.includes(day);
       const isUnderMaxDays = (staffWorkCount?.[id] || 0) < RULES.MAX_CONSECUTIVE_DAYS;
+      // 「休み希望がない」かつ「連勤制限以内」のスタッフのみ
       return !isHolidayRequested && isUnderMaxDays;
-    }).sort((a, b) => (staffWorkCount?.[a] || 0) - (staffWorkCount?.[b] || 0));
+    }).sort((a, b) => (staffWorkCount?.[a] || 0) - (staffWorkCount?.[b] || 0)); // 勤務が少ない順に並び替え（公平性）
 
-    // Try to assign at least MIN_STAFF_PER_DAY
+    // 規定の人数（MIN_STAFF_PER_DAY）に達するまでシフトを割り当てる
     for (const staffId of availableStaff) {
       if (assignedToday >= RULES.MIN_STAFF_PER_DAY) break;
 
-      // Deterministic shift type for draft (can be randomized or based on patterns)
-      // For now: Cycle through Day, Early, Night, Day-AM
+      // シフトの種類（早番・日勤など）を順番に割り当てる
       const shiftTypes = [SHIFT_TYPES.DAY.id, SHIFT_TYPES.EARLY.id, SHIFT_TYPES.NIGHT.id, SHIFT_TYPES.DAY_AM.id];
       table[staffId][day] = shiftTypes[day % shiftTypes.length];
       
-      staffWorkCount[staffId]++;
+      staffWorkCount[staffId]++; // 連勤カウントを増やす
       assignedToday++;
     }
 
-    // Reset work count for those who are NOT working today
+    // 今日が休みになったスタッフの連勤カウントをリセット
     staffIds.forEach(id => {
       if (table[id][day] === SHIFT_TYPES.OFF.id) {
         staffWorkCount[id] = 0;
@@ -51,9 +58,14 @@ export const generateDraftShift = (staffIds, availabilityRequests, daysInMonth) 
 };
 
 /**
- * Check for rule violations and return alerts
- * @param {Object} table 
- * @returns {Array} - List of alerts { day, type, message, staffId? }
+ * シフトのルール違反をチェックして警告を返す
+ * 
+ * 1. 各日の出勤人数が足りているかチェック。
+ * 2. スタッフが連勤制限（例：5連勤まで）を超えていないかチェック。
+ * 
+ * @param {Object} table - チェック対象のシフト表
+ * @param {number} daysInMonth - 月の日数
+ * @returns {Array} - アラートのリスト [{ day, type, message, staffId }]
  */
 export const checkShiftRules = (table, daysInMonth) => {
   const alerts = [];
@@ -62,9 +74,11 @@ export const checkShiftRules = (table, daysInMonth) => {
   for (let day = 0; day < daysInMonth; day++) {
     let count = 0;
     staffIds.forEach(id => {
+      // 休日以外のシフトが入っている人数を数える
       if (table?.[id]?.[day] && table[id][day] !== SHIFT_TYPES.OFF.id) count++;
     });
 
+    // 人数不足チェック
     if (count < RULES.MIN_STAFF_PER_DAY) {
       alerts.push({
         day,
@@ -74,12 +88,13 @@ export const checkShiftRules = (table, daysInMonth) => {
     }
   }
 
-  // Consecutive days check
+  // 連勤チェック
   staffIds.forEach(id => {
     let consecutive = 0;
     for (let day = 0; day < daysInMonth; day++) {
       if (table?.[id]?.[day] && table[id][day] !== SHIFT_TYPES.OFF.id) {
         consecutive++;
+        // 規定の連勤数を超えたら警告
         if (consecutive > RULES.MAX_CONSECUTIVE_DAYS) {
           alerts.push({
             day,
@@ -89,6 +104,7 @@ export const checkShiftRules = (table, daysInMonth) => {
           });
         }
       } else {
+        // 休みが入ったらカウントリセット
         consecutive = 0;
       }
     }
