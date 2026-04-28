@@ -1,6 +1,19 @@
 import React from 'react';
 import { User, Lock } from 'lucide-react';
 
+/**
+ * LoginForm
+ * 
+ * 役割: ログイン情報の入力フォーム
+ * - IDとパスワードの入力フィールドを提供
+ * - 送信ボタン（ログインボタン）の表示とローディング状態の制御
+ * 
+ * Props:
+ * - staffId, setStaffId: IDの保持と更新
+ * - password, setPassword: パスワードの保持と更新
+ * - loading: 送信中のボタン無効化フラグ
+ * - onSubmit: フォーム送信時の処理（親から渡されるhandleSubmit）
+ */
 const LoginForm = ({ staffId, setStaffId, password, setPassword, loading, onSubmit }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-6">

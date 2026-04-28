@@ -2,6 +2,13 @@ import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+/**
+ * LoginError
+ * 
+ * 役割: ログインエラーの表示
+ * - エラーメッセージがある場合のみ警告枠を表示
+ * - 「初期設定が必要」というエラーの場合にセットアップ画面への誘導ボタンを表示
+ */
 const LoginError = ({ error }) => {
   const navigate = useNavigate();
 

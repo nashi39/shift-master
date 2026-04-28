@@ -1,5 +1,12 @@
 import React from 'react';
 
+/**
+ * LoginHeader
+ * 
+ * 役割: ログイン画面のヘッダー表示
+ * - アプリ名「SHIFT MASTER」のロゴ表示
+ * - 画面の趣旨（スタッフログイン）の表示
+ */
 const LoginHeader = () => {
   return (
     <div className="text-center">

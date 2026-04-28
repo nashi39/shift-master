@@ -1,6 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+/**
+ * LoginFooter
+ * 
+ * 役割: ログイン画面下部の補足情報
+ * - 初めて利用するユーザー向けに、セットアップ画面へのリンクを提供
+ */
 const LoginFooter = () => {
   return (
     <div className="text-center pt-4 border-t border-white/5">

@@ -9,6 +9,15 @@ import LoginError from './LoginError';
 import LoginForm from './LoginForm';
 import LoginFooter from './LoginFooter';
 
+/**
+ * LoginView (Main Container)
+ * 
+ * 役割: ログイン画面の「司令塔」
+ * - ユーザーIDとパスワードの入力状態を管理 (State)
+ * - Firebase Authを使用したログイン処理の実行 (Logic)
+ * - ログイン成功後の権限に応じたリダイレクト処理
+ * - 各種サブコンポーネントを配置して画面を構成
+ */
 const LoginView = () => {
   const { login } = useAuth();
   const [staffId, setStaffId] = useState('');
