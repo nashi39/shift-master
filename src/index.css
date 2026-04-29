@@ -1,22 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
 
+/**
+ * デザインシステム用変数定義 (:root)
+ * 
+ * アプリケーション全体で使用されるプレミアムなダークテーマの色調、
+ * グラデーション、影、角丸などを定義しています。
+ */
 :root {
-  /* Colors - Premium Dark Palette */
+  /* 背景色 - 深みのある紺色から黒に近い色調 */
   --bg-main: #0f1117;
   --bg-card: rgba(30, 34, 45, 0.7);
   --bg-glass: rgba(255, 255, 255, 0.03);
   --border-glass: rgba(255, 255, 255, 0.1);
   
+  /* テキスト色 - 視認性と階層を考慮したグレー・白のグラデーション */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   
-  --accent-primary: #3b82f6; /* Electric Blue */
-  --accent-secondary: #8b5cf6; /* Purple */
+  /* アクセントカラー - ステータスやアクションを強調する色 */
+  --accent-primary: #3b82f6; /* エレクトリックブルー */
+  --accent-secondary: #8b5cf6; /* パープル */
   --accent-success: #10b981;
   --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
   
+  /* グラデーション・影・角丸 */
   --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -41,12 +50,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* 全要素のデフォルト設定 */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+/* ボディ背景: 放射状グラデーションを組み合わせた奥行きのあるデザイン */
 body {
   min-height: 100vh;
   background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.05), transparent),
@@ -61,6 +72,7 @@ body {
   flex-direction: column;
 }
 
+/* 見出しには Outfit フォントを使用してモダンな印象に */
 h1, h2, h3, h4 {
   font-family: 'Outfit', sans-serif;
   font-weight: 600;
@@ -81,7 +93,7 @@ ul {
   list-style: none;
 }
 
-/* --- Layout Utilities (Tailwind-like) --- */
+/* --- レイアウト用ユーティリティ (Tailwind ライク) --- */
 .flex { display: flex; }
 .flex-col { flex-direction: column; }
 .items-center { align-items: center; }
@@ -126,7 +138,7 @@ ul {
 .h-16 { height: 4rem; }
 .max-w-lg { overflow-wrap: break-word; max-width: 32rem; }
 
-/* --- Color & Utility Palette (!important to override component defaults) --- */
+/* --- カラー・パレット (状態表示や強調用) --- */
 .bg-red-500 { background-color: #ef4444 !important; background-image: none !important; }
 .bg-red-500\/10 { background-color: rgba(239, 68, 68, 0.1) !important; }
 .bg-red-500\/20 { background-color: rgba(239, 68, 68, 0.2) !important; }
@@ -160,7 +172,7 @@ ul {
 .cursor-pointer { cursor: pointer !important; }
 .z-10 { z-index: 10 !important; }
 
-/* Grid System */
+/* グリッド・システム */
 .grid { display: grid; }
 .grid-cols-7 { grid-template-columns: repeat(7, 1fr); }
 .grid-cols-1 { grid-template-columns: repeat(1, 1fr); }
@@ -172,7 +184,7 @@ ul {
 
 .aspect-square { aspect-ratio: 1 / 1; }
 
-/* Glassmorphism Utilities */
+/* --- グラスモルフィズム (Glassmorphism) ユーティリティ --- */
 .glass {
   background: var(--bg-glass);
   backdrop-filter: blur(12px);
@@ -189,7 +201,7 @@ ul {
   overflow: hidden;
 }
 
-/* Custom Scrollbar */
+/* カスタム・スクロールバー (Webkit 系ブラウザ用) */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -198,7 +210,7 @@ ul {
   border-radius: 10px;
 }
 
-/* Calendar Specifics */
+/* カレンダー専用スタイル */
 .calendar-day {
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
@@ -211,12 +223,15 @@ ul {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Animations */
+/* --- アニメーション定義 --- */
+
+/* 下から上にフェードイン */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* 少し小さい状態からズームイン */
 @keyframes zoomIn {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
@@ -230,7 +245,7 @@ ul {
   animation: zoomIn 0.3s ease-out forwards;
 }
 
-/* Print Styles */
+/* --- 印刷用スタイル --- */
 @media print {
   body { background: white !important; color: black !important; }
   .glass-card {
