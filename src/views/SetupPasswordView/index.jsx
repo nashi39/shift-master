@@ -10,12 +10,18 @@ import SetupForm from './SetupForm';
 import SetupFooter from './SetupFooter';
 
 /**
- * SetUpPasswordView (Main Container)
+ * SetUpPasswordView (メインコンテナ)
  * 
- * 役割: 初期設定画面の司令塔
- * - フォームの入力状態管理
- * - パスワード設定およびリセットメール送信のロジック実行
- * - 成功・失敗に応じた画面表示の切り替え
+ * 【役割】
+ * 初回ログイン時のパスワード設定およびアカウント有効化を行う画面の親コンポーネントです。
+ * 
+ * 【主な機能】
+ * 1. フォームの状態管理: ID、招待キー、新パスワードの入力を管理します。
+ * 2. ビジネスロジックの実行: AuthContextを介して、パスワード設定（setupPassword）や
+ *    パスワードリセットメールの送信（sendResetEmailByKey）を実行します。
+ * 3. 画面遷移制御: 処理成功後、ユーザーのロール（管理者/スタッフ）に応じた
+ *    ダッシュボードへ自動的にリダイレクトします。
+ * 4. 状態に応じた表示切り替え: フォーム入力、成功ステータス、メール送信完了などの表示を切り替えます。
  */
 const SetUpPasswordView = () => {
   const { setupPassword, sendResetEmailByKey } = useAuth();
@@ -40,7 +46,7 @@ const SetUpPasswordView = () => {
     e.preventDefault();
     setError('');
     setShowResetOption(false);
-    
+
     if (formData.password !== formData.confirmPassword) {
       return setError('パスワードが一致しません。');
     }
@@ -85,7 +91,7 @@ const SetUpPasswordView = () => {
         <div className="glass-card p-8 border border-white/10 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl" />
           <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
-          
+
           <SetupHeader />
 
           <SetupError error={error} />
@@ -95,7 +101,7 @@ const SetUpPasswordView = () => {
           ) : success ? (
             <SetupStatus type="success" />
           ) : (
-            <SetupForm 
+            <SetupForm
               formData={formData}
               handleChange={handleChange}
               handleSubmit={handleSubmit}

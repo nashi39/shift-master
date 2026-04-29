@@ -4,8 +4,11 @@ import { Link } from 'react-router-dom';
 /**
  * SetupFooter
  * 
- * 役割: 画面下部のナビゲーション
- * - すでに登録済みのユーザーをログイン画面へ誘導
+ * 【役割】
+ * 画面最下部に表示される補助的なナビゲーションです。
+ * 
+ * @param {Object} props
+ * @param {boolean} props.hide - trueの場合、フッターを非表示にします（成功画面などで使用）。
  */
 const SetupFooter = ({ hide }) => {
   if (hide) return null;

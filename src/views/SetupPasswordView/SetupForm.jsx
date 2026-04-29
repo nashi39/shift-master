@@ -4,9 +4,21 @@ import { User, Key, Lock, Check } from 'lucide-react';
 /**
  * SetupForm
  * 
- * 役割: 初期設定の入力フォーム
- * - ID、招待キー、新しいパスワードの入力
- * - すでに登録済みの場合はパスワードリセットボタンに切り替え
+ * 【役割】
+ * ユーザーからの入力を受け付けるフォーム本体のコンポーネントです。
+ * 
+ * 【機能】
+ * - 入力フィールド（Account ID, Invitation Key, Password）の提供。
+ * - ローディング状態に応じたボタンの無効化。
+ * - 既にアカウントが存在する場合の「パスワード再設定」への切り替え表示。
+ * 
+ * @param {Object} props
+ * @param {Object} props.formData - 入力データのオブジェクト。
+ * @param {Function} props.handleChange - 入力変更時のハンドラー。
+ * @param {Function} props.handleSubmit - フォーム送信時のハンドラー。
+ * @param {Function} props.handleResetEmail - リセットメール送信時のハンドラー。
+ * @param {boolean} props.showResetOption - すでに登録済みの際にリセットオプションを表示するかどうか。
+ * @param {boolean} props.loading - 処理実行中の状態。
  */
 const SetupForm = ({ 
   formData, 

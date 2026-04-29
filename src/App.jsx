@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import AdminView from './views/AdminView';
 import StaffView from './views/StaffView';
 import LoginView from './views/LoginView';
-import SetupPasswordView from './views/SetupPasswordView';
+import SetupPasswordView from './views/SetUpPasswordView';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {

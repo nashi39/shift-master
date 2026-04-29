@@ -4,8 +4,11 @@ import { AlertCircle } from 'lucide-react';
 /**
  * SetupError
  * 
- * 役割: 設定中のエラー表示
- * - エラーメッセージがある場合に警告を表示
+ * 【役割】
+ * 設定プロセス中に発生したエラーメッセージをユーザーに通知するためのUIコンポーネントです。
+ * 
+ * @param {Object} props
+ * @param {string} props.error - 表示するエラーメッセージ文字列。空の場合は何も表示しません。
  */
 const SetupError = ({ error }) => {
   if (!error) return null;

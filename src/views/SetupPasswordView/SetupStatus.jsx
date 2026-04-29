@@ -4,8 +4,13 @@ import { Check } from 'lucide-react';
 /**
  * SetupStatus
  * 
- * 役割: 処理完了後のステータス表示
- * - パスワード設定完了、またはリセットメール送信完了のメッセージを表示
+ * 【役割】
+ * ユーザーの操作が正常に完了したことを視覚的にフィードバックするコンポーネントです。
+ * 
+ * @param {Object} props
+ * @param {string} props.type - 表示するステータスの種類。
+ *   - 'resetSent': リセットメールの送信完了を通知。
+ *   - 'success': パスワード設定の完了を通知。
  */
 const SetupStatus = ({ type }) => {
   if (type === 'resetSent') {
