@@ -40,7 +40,7 @@ const StaffCalendar = ({
       </div>
 
       <div className="grid grid-cols-7 gap-2.5">
-        {/* Day Headers */}
+        {/* 曜日ヘッダー (日〜土) */}
         {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d, i) => (
           <div 
             key={d} 
@@ -52,19 +52,19 @@ const StaffCalendar = ({
           </div>
         ))}
         
-        {/* Padding Days */}
+        {/* 月の開始日までの空セルを埋める */}
         {paddingDays.map(i => (
           <div key={`pad-${i}`} className="aspect-square opacity-0 pointer-events-none" />
         ))}
         
-        {/* Actual Days */}
+        {/* 各日付のレンダリング */}
         {daysArray.map((day, idx) => {
-          const isSelected = localRequests.includes(idx);
+          const isSelected = localRequests.includes(idx); // 休み希望として選択されているか
           const dayOfWeek = (firstDayOfMonth + idx) % 7;
           const isSunday = dayOfWeek === 0;
           const isSaturday = dayOfWeek === 6;
           
-          // 割り当てられたシフトの取得
+          // 該当する日に割り当てられたシフト情報を取得
           const assignedShiftId = (shifts?.[userData?.id] && shifts?.[userData?.id][idx]) || SHIFT_TYPES.OFF.id;
           const shift = Object.values(SHIFT_TYPES).find(s => s.id === assignedShiftId) || SHIFT_TYPES.OFF;
           const hasShift = assignedShiftId !== SHIFT_TYPES.OFF.id;
@@ -75,10 +75,10 @@ const StaffCalendar = ({
               onClick={() => toggleHoliday(idx)}
               className={`calendar-day relative aspect-square rounded-[1.2rem] flex flex-col items-center justify-between p-1.5 transition-all duration-300 active:scale-90 overflow-hidden border-2 cursor-pointer z-10 ${
                 isSelected 
-                  ? 'bg-red-500 border-red-400 shadow-lg shadow-red-500/30' 
+                  ? 'bg-red-500 border-red-400 shadow-lg shadow-red-500/30' // 休み希望選択時
                   : hasShift
-                    ? 'bg-white/5 border-white/20 shadow-xl'
-                    : 'border-white/5 text-slate-300 hover:bg-white/10 hover:border-white/10'
+                    ? 'bg-white/5 border-white/20 shadow-xl' // シフトあり
+                    : 'border-white/5 text-slate-300 hover:bg-white/10 hover:border-white/10' // シフトなし
               }`}
             >
               <div className="w-full flex justify-between items-start">
@@ -89,6 +89,7 @@ const StaffCalendar = ({
                 </span>
               </div>
               
+              {/* 確定済みシフトがある場合のバッジ表示 */}
               {hasShift && (
                 <div 
                   className={`w-full py-1 rounded-lg text-[10px] font-black text-white shadow-lg animate-in zoom-in duration-300 mb-0.5 ${
@@ -106,8 +107,9 @@ const StaffCalendar = ({
         })}
       </div>
       
-      {/* Legend Section */}
+      {/* 凡例（レジェンド）: シフトの種類や休み希望の説明 */}
       <div className="mt-10 pt-6 border-t border-white/5 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {/* シフトタイプ別の凡例 */}
         {[SHIFT_TYPES.EARLY, SHIFT_TYPES.DAY, SHIFT_TYPES.NIGHT, SHIFT_TYPES.DAY_AM].map(type => (
           <div key={type.id} className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
             <div className="w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-md" style={{ backgroundColor: type.color }}>
@@ -116,6 +118,7 @@ const StaffCalendar = ({
             <span className="text-[10px] font-bold text-slate-400">{type.label}</span>
           </div>
         ))}
+        {/* 休み希望の凡例 */}
         <div className="flex items-center gap-2 bg-red-500/5 p-2 rounded-xl border border-red-500/20">
           <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-red-500 text-white shadow-md">
             <Check size={12} strokeWidth={4} />

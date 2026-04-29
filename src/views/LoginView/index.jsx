@@ -10,13 +10,15 @@ import LoginForm from './LoginForm';
 import LoginFooter from './LoginFooter';
 
 /**
- * LoginView (Main Container)
+ * LoginView (メインコンテナ)
  * 
- * 役割: ログイン画面の「司令塔」
- * - ユーザーIDとパスワードの入力状態を管理 (State)
- * - Firebase Authを使用したログイン処理の実行 (Logic)
- * - ログイン成功後の権限に応じたリダイレクト処理
- * - 各種サブコンポーネントを配置して画面を構成
+ * 【役割】
+ * ユーザー認証を行い、適切なダッシュボードへ誘導するための入り口となる画面です。
+ * 
+ * 【主な機能】
+ * 1. 認証処理: Firebase Authを使用して、ID（社内用ID）とパスワードによるログインを実行します。
+ * 2. 権限ベースのルーティング: ログイン成功後、Firestoreの `users` コレクションからロール（admin/staff）を取得し、管理者画面またはスタッフ画面へ遷移させます。
+ * 3. 初期設定への誘導: アカウントが未作成の状態でのログイン試行時や、パスワード未設定時に適切な案内を行い、セットアップ画面へ誘導します。
  */
 const LoginView = () => {
   const { login } = useAuth();

@@ -12,6 +12,23 @@ import ShiftTable from './ShiftTable';
 import StaffManagementModal from './StaffManagementModal';
 import MessageListModal from './MessageListModal';
 
+/**
+ * AdminView (メインコンテナ)
+ * 
+ * 【役割】
+ * 管理者専用のシフト管理ダッシュボードであり、シフトの作成・調整、スタッフ管理、および運営ルールチェックを行う統括画面です。
+ * 
+ * 【主な機能】
+ * 1. シフト編集: カレンダー形式のテーブル上で、各スタッフのシフトを直感的にドラッグ・クリック操作で編集・保存できます。
+ * 2. 自動生成機能: AIエンジン（allocationEngine）を使用して、スタッフの休み希望を考慮したシフト案を自動生成します。
+ * 3. ルールチェック: 連勤制限や最低出勤人数などのルール違反をリアルタイムで検知し、視覚的な警告を表示します。
+ * 4. スタッフ管理: スタッフ情報のCRUD操作、招待キーの発行、およびパスワードリセットによる再招待フローを提供します。
+ * 5. コミュニケーション: スタッフから送信されたメモや連絡事項を一括で確認し、運用の可視化をサポートします。
+ * 
+ * 【データの流れ】
+ * - ShiftContext経由でFirestoreの全データ（shifts, requests, memos, staff）を取得・監視。
+ * - ユーザーの入力や自動生成処理が発生するたび、updateGlobalShifts関数を介してFirestoreとリアルタイム同期。
+ */
 const AdminView = () => {
   // シフトデータのリアルタイム読込・更新用Context
   const { 
