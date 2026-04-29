@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ShiftProvider } from './context/ShiftContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AdminView from './views/AdminView';
-import StaffView from './views/StaffView';
+import StaffView from './views/StaffView/index';
 import LoginView from './views/LoginView';
 import SetupPasswordView from './views/SetUpPasswordView';
 
