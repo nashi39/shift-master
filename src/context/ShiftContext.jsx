@@ -14,69 +14,67 @@ export const ShiftProvider = ({ children }) => {
 
   // Load staff configuration and monthly data
   // --- データのリアルタイム購読 (Firebase Realtime Listener) ---
+  // --- データのリアルタイム購読 (Firebase Realtime Listener) ---
   useEffect(() => {
-    // スタッフの構成設定（名前など）を監視
-    const unsubConfig = onSnapshot(doc(db, "global", "config"), (docSnap) => {
-      if (docSnap.exists()) {
-        setStaff(docSnap.data().staff || []);
-      } else {
-        // 設定が存在しない場合は初期データを作成
-        const defaultStaff = Array.from({ length: 5 }, (_, i) => ({
-          id: `user${i + 1}`,
-          name: `スタッフ ${i + 1}`
-        }));
-        setStaff(defaultStaff);
-        setDoc(doc(db, "global", "config"), { staff: defaultStaff });
-      }
-    });
+    console.log("ShiftContext: Starting real-time listener...");
 
-    // 今月のシフトデータ全体（シフト、休み希望、メモ）を監視
+    // 今月のデータ全体（シフト、休み希望、メモ、スタッフ名簿）を監視
     const unsubData = onSnapshot(doc(db, "global", "current_month"), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setShifts(data?.shifts || {});
-        setRequests(data?.requests || {});
-        setMemos(data?.memos || {});
-      } else {
-        setShifts({});
-        setRequests({});
-        setMemos({});
+      try {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setShifts(data?.shifts || {});
+          setRequests(data?.requests || {});
+          setMemos(data?.memos || {});
+          
+          if (data?.staff) {
+            const staffData = Array.isArray(data.staff) ? data.staff : Object.values(data.staff);
+            setStaff(staffData.filter(s => s && typeof s === 'object'));
+          }
+        } else {
+          console.warn("ShiftContext: Document 'current_month' does not exist.");
+          setShifts({});
+          setRequests({});
+          setMemos({});
+          setStaff([]);
+        }
+      } catch (err) {
+        console.error("ShiftContext: Data processing error:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }, (error) => {
-      console.error("Shift data error:", error);
+      // 権限エラーなどはここでキャッチされる
+      console.warn("ShiftContext: Snapshot listener error (this is normal if logged out):", error.message);
       setLoading(false);
     });
 
-    // クリーンアップ処理：画面を離れる時に監視を停止する
+    // クリーンアップ処理
     return () => {
-      unsubConfig();
       unsubData();
     };
-  }, []);
+  }, []); // 以前の安定した設定（空の依存配列）に戻します
 
   // --- データ更新用関数 (Actions) ---
 
   /**
-   * シフト表全体のデータをFirestoreに保存する
-   * @param {Object} newShifts - 新しいシフト表
-   * @param {Object} newRequests - 更新された休み希望
-   * @param {Object} newMemos - 更新されたメモ
+   * 全てのデータを一つのドキュメントに保存する
    */
   const updateGlobalShifts = async (newShifts, newRequests, newMemos) => {
     await setDoc(doc(db, "global", "current_month"), {
       shifts: newShifts || shifts,
       requests: newRequests || requests,
       memos: newMemos || memos,
-    }, { merge: true }); // merge: true を指定して既存のデータを壊さないように更新
+    }, { merge: true });
   };
 
   /**
-   * スタッフのマスター情報（名前等）を更新する
-   * @param {Array} newStaff - 新しいスタッフ名簿
+   * スタッフのマスター情報をcurrent_monthに保存する
    */
   const updateStaffConfig = async (newStaff) => {
-    await setDoc(doc(db, "global", "config"), { staff: newStaff });
+    await setDoc(doc(db, "global", "current_month"), { 
+      staff: newStaff 
+    }, { merge: true });
   };
 
   return (

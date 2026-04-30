@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useShifts } from '../../context/ShiftContext';
-import { db, doc, setDoc, getDocs, collection } from '../../utils/firebase';
+import { db, doc, setDoc, getDocs, collection, deleteDoc, query, where, sendPasswordResetEmail, auth } from '../../utils/firebase';
 import { SHIFT_TYPES } from '../../utils/constants';
 import { generateDraftShift, checkShiftRules } from '../../utils/allocationEngine';
 import { useAuth } from '../../context/AuthContext';
@@ -46,6 +46,27 @@ const AdminView = () => {
   
   // 表示中の月（現在は実行時の当月固定）
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+
+  // --- データベース自動修復 (Temporary Auto-Repair) ---
+  useEffect(() => {
+    const repairDatabase = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        // 管理者プロフィールを強制的に作成/更新（UIDとの紐付けを確実にするため）
+        await setDoc(doc(db, "users", user.uid), {
+          id: "product",
+          name: "管理者",
+          role: "admin",
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (err) {
+        console.error("Auto-Repair Error:", err);
+      }
+    };
+    repairDatabase();
+  }, []);
   // 現在の入力モード（早番・遅番など、クリック時に適用されるシフトタイプ）
   const [activeShift, setActiveShift] = useState(SHIFT_TYPES.DAY.id);
 
@@ -95,20 +116,33 @@ const AdminView = () => {
    * スタッフ管理モーダルを開く際の初期化処理
    * Firestoreから最新の登録・招待キー情報を取得する
    */
+  const { userData } = useAuth(); // 現在のユーザー情報を取得
+  /**
+   * スタッフ管理モーダルを開く
+   * 現在のスタッフ一覧を編集用の一時ステートにコピーし、登録状況をFirestoreから取得します。
+   */
   const openStaffModal = async () => {
-    setTempStaff(staff.map(s => ({ ...s }))); // 現在のスタッフ一覧を編集用にコピー
-    const regSnap = await getDocs(collection(db, "staff_registrations"));
-    const regs = {};
-    regSnap.forEach(doc => { regs[doc.id] = doc.data(); });
-    setRegData(regs);
-    setIsStaffModalOpen(true);
+    // staffが配列であることを保証してコピー（クラッシュ防止）
+    const currentStaff = Array.isArray(staff) ? staff : [];
+    setTempStaff(currentStaff.map(s => ({ ...s }))); 
+    
+    setIsLocalLoading(true);
+    try {
+      const regSnap = await getDocs(collection(db, "staff_registrations"));
+      const regs = {};
+      regSnap.forEach(doc => { regs[doc.id] = doc.data(); });
+      setRegData(regs);
+      setIsStaffModalOpen(true);
+    } catch (err) {
+      console.error("Error loading registration data:", err);
+      alert("登録情報の取得に失敗しました。");
+    } finally {
+      setIsLocalLoading(false);
+    }
   };
 
   /**
    * スタッフの再招待・パスワードリセット処理
-   * 1. パスワードリセットメール送信
-   * 2. 新しい招待キーの発行
-   * 3. 既存のアカウントプロフィールのリセット
    */
   const handleReinvite = async (staffId) => {
     const normalizedId = staffId.toLowerCase();
@@ -118,9 +152,6 @@ const AdminView = () => {
 
     setIsLocalLoading(true);
     try {
-      const { sendPasswordResetEmail } = await import('firebase/auth');
-      const { auth } = await import('../../utils/firebase');
-
       // Firebase Authのパスワードリセット機能を実行
       try {
         await sendPasswordResetEmail(auth, email);
@@ -139,8 +170,7 @@ const AdminView = () => {
         registered: false
       });
 
-      // 既存のユーザープロファイルを削除（再セットアップを強制するため）
-      const { query, where, getDocs, deleteDoc } = await import('firebase/firestore');
+      // 既存のユーザープロファイルを削除
       const uQuery = query(collection(db, "users"), where("id", "==", normalizedId));
       const uSnap = await getDocs(uQuery);
       for (const uDoc of uSnap.docs) {
@@ -153,7 +183,6 @@ const AdminView = () => {
       regSnap.forEach(doc => { regs[doc.id] = doc.data(); });
       setRegData(regs);
 
-      // クリップボードに案内文をコピー
       const setupUrl = `${window.location.origin}/setup`;
       const inviteMsg = `【シフト管理システム 再設定のご案内】\n\nパスワード再設定メールを送信しました。\nメール内のリンクからパスワードを更新した後、以下の招待キーを使用して再度セットアップを行ってください。\n\n■招待キー: ${newKey}\n■セットアップURL: ${setupUrl}`;
 
@@ -173,7 +202,6 @@ const AdminView = () => {
 
   /**
    * 編集したスタッフ構成をFirestoreに保存
-   * 削除されたスタッフのアカウントクリーンアップも行う
    */
   const handleSaveStaff = async () => {
     const validStaff = tempStaff.filter(s => s.name.trim() !== "" && s.id.trim() !== "");
@@ -185,37 +213,47 @@ const AdminView = () => {
       return;
     }
 
-    // 削除対象のスタッフを特定
-    const currentIds = staff.map(s => s.id.toLowerCase());
-    const newIds = validStaff.map(s => s.id.toLowerCase());
-    const removedIds = currentIds.filter(id => !newIds.includes(id));
+    setIsLocalLoading(true);
+    try {
+      // 削除対象のスタッフを特定
+      const currentIds = staff.map(s => s.id.toLowerCase());
+      const newIds = validStaff.map(s => s.id.toLowerCase());
+      const removedIds = currentIds.filter(id => !newIds.includes(id));
 
-    // 削除されたスタッフのデータをFirestoreから一掃
-    const { deleteDoc, query, where, getDocs } = await import('firebase/firestore');
-    for (const rid of removedIds) {
-      await deleteDoc(doc(db, "staff_registrations", rid));
-      const uQuery = query(collection(db, "users"), where("id", "==", rid));
-      const uSnap = await getDocs(uQuery);
-      for (const uDoc of uSnap.docs) {
-        await deleteDoc(doc(db, "users", uDoc.id));
+      // 削除されたスタッフのデータをFirestoreから一掃
+      for (const rid of removedIds) {
+        await deleteDoc(doc(db, "staff_registrations", rid));
+        const uQuery = query(collection(db, "users"), where("id", "==", rid));
+        const uSnap = await getDocs(uQuery);
+        for (const uDoc of uSnap.docs) {
+          await deleteDoc(doc(db, "users", uDoc.id));
+        }
       }
-    }
 
-    // スタッフマスターを更新
-    await updateStaffConfig(validStaff);
+      // スタッフマスターを更新
+      await updateStaffConfig(validStaff);
 
-    // 新規追加されたスタッフに招待キーを発行
-    for (const s of validStaff) {
-      if (!regData?.[s.id]) {
-        const newKey = generateKey();
-        await setDoc(doc(db, "staff_registrations", s.id.toLowerCase()), {
-          name: s.name,
-          invitationKey: newKey,
-          registered: false
-        });
+      // 新規追加されたスタッフに招待キーを発行
+      for (const s of validStaff) {
+        const sid = s.id.toLowerCase();
+        if (!regData?.[sid]) {
+          const newKey = generateKey();
+          await setDoc(doc(db, "staff_registrations", sid), {
+            name: s.name,
+            invitationKey: newKey,
+            registered: false
+          });
+        }
       }
+      
+      alert("スタッフ設定を保存しました。");
+      setIsStaffModalOpen(false);
+    } catch (err) {
+      console.error("Save Staff Error:", err);
+      alert(`保存に失敗しました: ${err.message || err.code}`);
+    } finally {
+      setIsLocalLoading(false);
     }
-    setIsStaffModalOpen(false);
   };
 
   /**
