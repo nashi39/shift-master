@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db, doc, onSnapshot, setDoc } from '../utils/firebase';
-import { RULES } from '../utils/constants';
+import { useAuth } from './AuthContext';
 
 const ShiftContext = createContext();
 
@@ -11,12 +11,19 @@ export const ShiftProvider = ({ children }) => {
   const [memos, setMemos] = useState({});     // 日付ごとのメモ・連絡事項
   const [staff, setStaff] = useState([]);    // スタッフ一覧（名前とIDのマスターデータ）
   const [loading, setLoading] = useState(true); // データの初期読み込み中かどうかを判定するフラグ
+  const { user } = useAuth(); // AuthContextからログイン状態を取得
 
-  // Load staff configuration and monthly data
-  // --- データのリアルタイム購読 (Firebase Realtime Listener) ---
   // --- データのリアルタイム購読 (Firebase Realtime Listener) ---
   useEffect(() => {
-    console.log("ShiftContext: Starting real-time listener...");
+    // ログインしていない場合は監視を行わない（権限エラー防止）
+    if (!user) {
+      console.log("ShiftContext: No user logged in. Waiting for auth...");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    console.log("ShiftContext: Starting real-time listener for user:", user.uid);
 
     // 今月のデータ全体（シフト、休み希望、メモ、スタッフ名簿）を監視
     const unsubData = onSnapshot(doc(db, "global", "current_month"), (docSnap) => {
@@ -44,16 +51,16 @@ export const ShiftProvider = ({ children }) => {
         setLoading(false);
       }
     }, (error) => {
-      // 権限エラーなどはここでキャッチされる
-      console.warn("ShiftContext: Snapshot listener error (this is normal if logged out):", error.message);
+      console.error("ShiftContext: Snapshot listener error:", error.message);
       setLoading(false);
     });
 
-    // クリーンアップ処理
+    // クリーンアップ処理：ユーザーが変わるか画面を離れる時にリセット
     return () => {
+      console.log("ShiftContext: Cleaning up listener");
       unsubData();
     };
-  }, []); // 以前の安定した設定（空の依存配列）に戻します
+  }, [user]); // user（ログイン状態）が変わった時に再起動
 
   // --- データ更新用関数 (Actions) ---
 
