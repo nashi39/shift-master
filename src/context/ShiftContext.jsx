@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db, doc, onSnapshot, setDoc } from '../utils/firebase';
+import { db, doc, onSnapshot, setDoc, auth } from '../utils/firebase';
 import { useAuth } from './AuthContext';
 
 const ShiftContext = createContext();
@@ -15,52 +15,69 @@ export const ShiftProvider = ({ children }) => {
 
   // --- データのリアルタイム購読 (Firebase Realtime Listener) ---
   useEffect(() => {
-    // ログインしていない場合は監視を行わない（権限エラー防止）
-    if (!user) {
-      console.log("ShiftContext: No user logged in. Waiting for auth...");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    console.log("ShiftContext: Starting real-time listener for user:", user.uid);
-
-    // 今月のデータ全体（シフト、休み希望、メモ、スタッフ名簿）を監視
-    const unsubData = onSnapshot(doc(db, "global", "current_month"), (docSnap) => {
-      try {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setShifts(data?.shifts || {});
-          setRequests(data?.requests || {});
-          setMemos(data?.memos || {});
-          
-          if (data?.staff) {
-            const staffData = Array.isArray(data.staff) ? data.staff : Object.values(data.staff);
-            setStaff(staffData.filter(s => s && typeof s === 'object'));
-          }
-        } else {
-          console.warn("ShiftContext: Document 'current_month' does not exist.");
-          setShifts({});
-          setRequests({});
-          setMemos({});
-          setStaff([]);
-        }
-      } catch (err) {
-        console.error("ShiftContext: Data processing error:", err);
-      } finally {
+    // 認証状態の変化を監視し、ログイン完了後にFirestoreの購読を開始する
+    const unsubscribeAuth = auth.onIdTokenChanged(async (firebaseUser) => {
+      if (!firebaseUser) {
+        console.log("ShiftContext: User logged out. Clearing data...");
+        setShifts({});
+        setRequests({});
+        setMemos({});
+        setStaff([]);
         setLoading(false);
+        return;
       }
-    }, (error) => {
-      console.error("ShiftContext: Snapshot listener error:", error.message);
-      setLoading(false);
+
+      console.log("ShiftContext: User authenticated. Starting Firestore listener...");
+      setLoading(true);
+
+      // 今月のデータ全体を監視
+      const unsubData = onSnapshot(doc(db, "global", "current_month"), (docSnap) => {
+        try {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            console.log("ShiftContext: New data received from Firestore");
+
+            // データの正規化（Firestoreが配列をオブジェクトとして保存する場合があるため）
+            const normalize = (val) => {
+              if (!val) return {};
+              // スタッフごとのデータ（shifts[staffId]など）をループ
+              const normalized = {};
+              Object.keys(val).forEach(id => {
+                normalized[id] = Array.isArray(val[id]) ? val[id] : Object.values(val[id]);
+              });
+              return normalized;
+            };
+
+            setShifts(normalize(data?.shifts));
+            setRequests(data?.requests || {}); // requestsはスタッフIDごとの配列リスト
+            setMemos(data?.memos || {});
+            
+            if (data?.staff) {
+              const staffArray = Array.isArray(data.staff) ? data.staff : Object.values(data.staff);
+              setStaff(staffArray.filter(s => s && typeof s === 'object'));
+            }
+          } else {
+            console.warn("ShiftContext: current_month doc not found");
+            setShifts({});
+            setRequests({});
+            setMemos({});
+            setStaff([]);
+          }
+        } catch (err) {
+          console.error("ShiftContext: Processing error", err);
+        } finally {
+          setLoading(false);
+        }
+      }, (error) => {
+        console.error("ShiftContext: Snapshot error", error);
+        setLoading(false);
+      });
+
+      return () => unsubData();
     });
 
-    // クリーンアップ処理：ユーザーが変わるか画面を離れる時にリセット
-    return () => {
-      console.log("ShiftContext: Cleaning up listener");
-      unsubData();
-    };
-  }, [user]); // user（ログイン状態）が変わった時に再起動
+    return () => unsubscribeAuth();
+  }, []); // authのリスナー自体は一度だけセット
 
   // --- データ更新用関数 (Actions) ---
 

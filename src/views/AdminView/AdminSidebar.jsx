@@ -13,7 +13,10 @@ import { SHIFT_TYPES } from '../../utils/constants';
  */
 const AdminSidebar = ({ activeShift, setActiveShift, openStaffModal, setIsMemoModalOpen, alerts }) => {
   return (
-    <aside className="w-64 glass-card p-4 flex flex-col gap-6 overflow-y-auto">
+    <aside 
+      className="glass-card p-4 flex flex-col gap-6 overflow-y-auto custom-scrollbar"
+      style={{ width: '320px', minWidth: '320px', flexShrink: 0 }}
+    >
       {/* シフトタイプ選択：クリックして入力するシフトの種類を選びます */}
       <div>
         <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">シフトタイプ選択</h3>

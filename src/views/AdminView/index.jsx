@@ -88,15 +88,35 @@ const AdminView = () => {
    * シフト表のセルをクリックした際の入力処理
    * 同じシフトなら休みに戻し、違うなら上書きするトグル動作
    */
-  const handleCellClick = (staffId, day) => {
-    const currentShift = shifts?.[staffId]?.[day] || SHIFT_TYPES.OFF.id;
+  const handleCellClick = (staffId, dayIndex) => {
+    // 既存のシフトを取得（shifts[staffId] は正規化されている想定）
+    const staffShifts = shifts?.[staffId] || [];
+    const currentShift = staffShifts[dayIndex] || SHIFT_TYPES.OFF.id;
     const nextShift = currentShift === activeShift ? SHIFT_TYPES.OFF.id : activeShift;
 
-    const newShifts = { ...(shifts || {}) };
-    if (!newShifts[staffId]) newShifts[staffId] = new Array(daysInMonth).fill(SHIFT_TYPES.OFF.id);
-    newShifts[staffId][day] = nextShift;
+    // 新しいシフトデータを作成
+    const newShifts = { ...shifts };
+    
+    // 対象スタッフのシフト配列をコピー（存在しない場合は新規作成）
+    let newStaffShifts;
+    if (Array.isArray(staffShifts)) {
+      newStaffShifts = [...staffShifts];
+      // 配列の長さが足りない場合は埋める
+      while (newStaffShifts.length < daysInMonth) {
+        newStaffShifts.push(SHIFT_TYPES.OFF.id);
+      }
+    } else {
+      // 万が一オブジェクトだった場合も考慮
+      newStaffShifts = { ...staffShifts };
+    }
 
-    // 変更を即座にFirestoreへ同期
+    // 値を更新
+    newStaffShifts[dayIndex] = nextShift;
+    newShifts[staffId] = newStaffShifts;
+
+    console.log(`AdminView: Updating shift for ${staffId} on day index ${dayIndex} to ${nextShift}`);
+    
+    // Firestoreへ同期
     updateGlobalShifts(newShifts, requests);
   };
 
@@ -289,7 +309,7 @@ const AdminView = () => {
         logout={logout} 
       />
 
-      <main className="flex-1 flex gap-6 overflow-hidden">
+      <main className="flex-1 flex flex-row gap-6 overflow-hidden min-h-0">
         {/* 左側サイドバー */}
         <AdminSidebar 
           activeShift={activeShift} 
@@ -301,6 +321,7 @@ const AdminView = () => {
 
         {/* 中央メインテーブル */}
         <ShiftTable 
+          key={`${selectedMonth.getTime()}-${daysInMonth}`}
           daysArray={daysArray} 
           staff={staff} 
           memos={memos} 

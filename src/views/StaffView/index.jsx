@@ -97,6 +97,7 @@ const StaffView = () => {
 
         {/* メインカレンダー: シフト確認と休み希望入力 */}
         <StaffCalendar 
+          key={daysInMonth}
           daysArray={daysArray}
           paddingDays={paddingDays}
           firstDayOfMonth={firstDayOfMonth}

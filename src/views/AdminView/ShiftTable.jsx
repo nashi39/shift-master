@@ -16,16 +16,16 @@ import { SHIFT_TYPES, RULES } from '../../utils/constants';
  */
 const ShiftTable = ({ daysArray, staff, memos, shifts, requests, activeShift, handleCellClick, setIsMemoModalOpen }) => {
   return (
-    <div className="flex-1 glass-card overflow-auto relative rounded-2xl">
-      <table className="w-full border-collapse">
+    <div className="flex-1 glass-card overflow-auto relative rounded-2xl custom-scrollbar">
+      <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
         {/* ヘッダー：スタッフ名と日付ラベル */}
         <thead className="sticky top-0 z-20">
           <tr className="glass bg-slate-800">
-            <th className="sticky left-0 z-30 p-4 min-w-[200px] text-left border-b border-white/5 bg-slate-800">スタッフ名</th>
+            <th className="sticky left-0 z-30 p-3 w-[120px] min-w-[120px] text-left border-b border-white/5 bg-slate-800 text-xs">スタッフ名</th>
             {daysArray.map((day) => (
               <th
                 key={day}
-                className="p-3 text-sm font-black border-b border-white/5 min-w-[48px] text-center text-slate-300"
+                className="p-2 text-[10px] font-black border-b border-white/5 w-[38px] min-w-[38px] text-center text-slate-400"
               >
                 {day}
               </th>
@@ -38,19 +38,19 @@ const ShiftTable = ({ daysArray, staff, memos, shifts, requests, activeShift, ha
           {staff.map((s, sIdx) => (
             <tr key={sIdx} className="hover:bg-white/5 transition-colors border-b border-white/5">
               {/* 固定列：スタッフ名とID、メッセージアイコン */}
-              <td className="sticky left-0 z-10 p-4 text-sm font-medium bg-slate-900/80 backdrop-blur-md border-r border-white/5">
-                <div className="flex items-center gap-2 group">
+              <td className="sticky left-0 z-10 p-3 text-xs font-medium bg-slate-900/80 backdrop-blur-md border-r border-white/5">
+                <div className="flex items-center gap-1.5 group">
                   <div className="flex flex-col">
-                    <span>{s.name}</span>
-                    <span className="text-[10px] text-slate-500 font-mono">{s.id}</span>
+                    <span className="truncate max-w-[80px]">{s.name}</span>
+                    <span className="text-[9px] text-slate-500 font-mono">{s.id}</span>
                   </div>
                   {/* メモがある場合は緑色のアイコンを表示（クリックで一覧へ） */}
                   {memos?.[s.id] && (
                     <button 
                       onClick={() => setIsMemoModalOpen(true)}
-                      className="p-1.5 rounded-full bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all shadow-sm"
+                      className="p-1 rounded-full bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"
                     >
-                      <MessageSquare size={14} />
+                      <MessageSquare size={12} />
                     </button>
                   )}
                 </div>
@@ -71,14 +71,14 @@ const ShiftTable = ({ daysArray, staff, memos, shifts, requests, activeShift, ha
                   <td
                     key={dIdx}
                     onClick={() => handleCellClick(s.id, dIdx)}
-                    className={`p-1 cursor-pointer transition-all relative border border-transparent ${isRequestedHoliday ? 'bg-red-500/10' : ''}`}
+                    className={`p-0.5 cursor-pointer transition-all relative border border-transparent ${isRequestedHoliday ? 'bg-red-500/5' : ''}`}
                   >
                     {/* シフトラベルの表示（休み希望時は赤く強調） */}
                     <div
-                      className={`w-full h-10 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all active:scale-95 shadow-lg ${!isOff
+                      className={`w-full h-8 rounded-md flex items-center justify-center text-[9px] font-bold transition-all active:scale-95 shadow-md ${!isOff
                           ? 'glass border-white/10'
                           : isRequestedHoliday
-                            ? 'bg-red-500/80 border-2 border-red-400/50 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+                            ? 'bg-red-500/80 border-2 border-red-400/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]'
                             : 'hover:bg-white/5'
                         }`}
                       style={{
@@ -91,7 +91,7 @@ const ShiftTable = ({ daysArray, staff, memos, shifts, requests, activeShift, ha
                     </div>
                     {/* 休み希望がある場合の小さなインジケーター */}
                     {isRequestedHoliday && (
-                      <div className="absolute -top-0.5 -right-0.5 z-10 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 shadow-lg animate-pulse" />
+                      <div className="absolute top-0 right-0 z-10 w-2 h-2 bg-red-500 rounded-full border border-slate-900 animate-pulse" />
                     )}
                   </td>
                 );

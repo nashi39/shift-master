@@ -47,8 +47,9 @@ const LoginView = () => {
 
       const role = userDoc.data().role || 'staff';
 
+      // ログイン成功後、画面を強制リロードして最新のコードとデータを読み込ませる
       setTimeout(() => {
-        navigate(role === 'admin' ? "/admin" : "/");
+        window.location.href = role === 'admin' ? "/admin" : "/";
       }, 500);
     } catch (err) {
       console.error("Login Error:", err);
